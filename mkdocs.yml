@@ -1,0 +1,9 @@
+site_name: CAAT
+theme:
+  name: material
+
+nav:
+  - Home: 'index.md'
+  - Getting Started: 'getting-started.md'
+  - Running CAAT: 'running-caat.md'
+  - Examples: 'examples.md'

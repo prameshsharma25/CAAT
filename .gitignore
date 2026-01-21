@@ -10,5 +10,3 @@ __pycache__
 .DS_Store
 /attention_visualizations
 /attention_outputs
-*.a3m
-*.fa
