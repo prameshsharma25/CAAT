@@ -26,7 +26,7 @@ def main():
     parser.add_argument(
         "--model-type",
         type=str,
-        default="alphafold2_ptm",
+        default="alphafold2",
         help="AlphaFold model type (e.g., alphafold2_ptm, alphafold2_multimer_v3).\nDefault: alphafold2_ptm",
     )
     parser.add_argument(

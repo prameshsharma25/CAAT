@@ -28,7 +28,7 @@ def main() -> None:
         type=str,
         help="Query MSA/Fasta file.",
     )
-    prediction.add_argument("--model-type", type=str, default="alphafold2_ptm")
+    prediction.add_argument("--model-type", type=str, default="alphafold2")
     prediction.add_argument("--num-models", type=int, default=5)
     prediction.add_argument("--result-dir", type=str, default="results")
     prediction.add_argument(
