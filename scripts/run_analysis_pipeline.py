@@ -73,6 +73,11 @@ def main():
         action="store_true",
         help="If set, exports attention weights in .npy format to local disk.",
     )
+    parser.add_argument(
+        "--generate-alignment",
+        action="store_true",
+        help="If set, generates a pairwise alignment file from the query and target sequences.",
+    )
 
     args = parser.parse_args()
 
@@ -105,6 +110,7 @@ def main():
         query_highlight_color=args.query_highlight_color,
         target_highlight_color=args.target_highlight_color,
         save_attention_npy=args.save_attention_npy,
+        generate_alignment=args.generate_alignment,
     )
 
 

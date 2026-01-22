@@ -87,6 +87,11 @@ def main() -> None:
         help="If set, exports individual uncompressed attention heads (.npy) to local disk.",
         default=False,
     )
+    analysis.add_argument(
+        "--generate-alignment",
+        action="store_true",
+        help="If set, generates a pairwise alignment file from the query and target sequences.",
+    )
 
     comparison = parser.add_argument_group("comparison settings (optional)")
     comparison.add_argument(
@@ -165,6 +170,7 @@ def main() -> None:
         query_highlight_color=args.query_highlight_color,
         target_highlight_color=args.target_highlight_color,
         save_attention_npy=args.save_attention_npy,
+        generate_alignment=args.generate_alignment,
     )
 
     logger.info("End-to-end pipeline complete. Results in %s", args.vis_output_dir)
