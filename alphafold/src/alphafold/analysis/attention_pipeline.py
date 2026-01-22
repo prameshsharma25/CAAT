@@ -270,9 +270,11 @@ def run_pipeline(
             )
 
         if alignment_path and target_name:
+            logger.info("Processing aligned mode with alignment file: %s", alignment_path)
             aligned_seq_query, aligned_seq_target = process_attention.read_alignment(
                 protein1=query_name, protein2=target_name, alignment=alignment_path
             )
+            logger.info(f"Aligned sequences:\nQuery: {aligned_seq_query}\nTarget: {aligned_seq_target}")
 
             (
                 attn_query_aligned,
@@ -286,22 +288,33 @@ def run_pipeline(
                 sequence2=aligned_seq_target,
             )
 
+            logger.info("Aligned attention shapes: Query %s, Target %s", attn_query_aligned.shape, attn_target_aligned.shape)
             query_aligned_mm = process_attention.min_max(data=attn_query_aligned)
+            logger.info(f"Query aligned attention after min-max: {query_aligned_mm}")
+
             target_aligned_mm = process_attention.min_max(data=attn_target_aligned)
+            logger.info(f"Target aligned attention after min-max: {target_aligned_mm}")
 
             query_aligned_z = zscore(query_aligned_mm)
+            logger.info(f"Query aligned attention z-scores: {query_aligned_z}")
+
             target_aligned_z = zscore(target_aligned_mm)
+            logger.info(f"Target aligned attention z-scores: {target_aligned_z}")
 
             query_aligned_imp = analyze_residue.find_important(
                 attention=query_aligned_mm, zscores=query_aligned_z
             )
+            logger.info(f"Query aligned important indices: {query_aligned_imp}")
+
             target_aligned_imp = analyze_residue.find_important(
                 attention=target_aligned_mm, zscores=target_aligned_z
             )
+            logger.info(f"Target aligned important indices: {target_aligned_imp}")
 
             query_aligned_blo, target_aligned_blo = analyze_residue.blosum_scores(
                 sequence1=aligned_seq_query, sequence2=aligned_seq_target
             )
+            logger.info(f"Computed BLOSUM scores for aligned sequences:\nQuery: {query_aligned_blo}\nTarget: {target_aligned_blo}")
 
             if query_pos_highlights:
                 query_aligned_pos = _map_indices_to_aligned(
@@ -317,6 +330,8 @@ def run_pipeline(
             else:
                 target_aligned_pos = None
 
+            logger.info(f"Mapped query highlight positions in alignment: {query_aligned_pos}")
+
             (
                 diff_query_aligned,
                 diff_target_aligned,
@@ -330,18 +345,24 @@ def run_pipeline(
                 bool_alignment=True,
             )
 
+            logger.info(f"Calculated attention differences for aligned query sequence: {diff_query_aligned}")
+            logger.info(f"Calculated attention differences for aligned target sequence: {diff_target_aligned}")
+
             analyze_residue.find_highest_attention(
                 attention=attn_query_aligned,
                 sequence=aligned_seq_query,
                 output_dir=str(output_subdir),
                 protein=query_name,
             )
+            logger.info("Finding highest attention for aligned query (results in %s)", output_subdir)
+
             analyze_residue.find_highest_attention(
                 attention=attn_target_aligned,
                 sequence=aligned_seq_target,
                 output_dir=str(output_subdir),
                 protein=target_name,
             )
+            logger.info("Finding highest attention for aligned target (results in %s)", output_subdir)
 
             plot_difference.plot_attention(
                 attention_scores=query_aligned_mm,
@@ -350,6 +371,8 @@ def run_pipeline(
                 output_dir=str(output_subdir),
                 sequence=aligned_seq_query,
             )
+            logger.info("Saved aligned attention plot for query: %s", query_name)
+
             plot_difference.plot_attention(
                 attention_scores=target_aligned_mm,
                 highlighted_scores=target_aligned_imp,
@@ -357,6 +380,7 @@ def run_pipeline(
                 output_dir=str(output_subdir),
                 sequence=aligned_seq_target,
             )
+            logger.info("Saved aligned attention plot for target: %s", target_name)
 
             plot_difference.plot_difference(
                 attn_diff_scores=diff_query_aligned,
@@ -366,6 +390,8 @@ def run_pipeline(
                 query_highlight_positions=query_aligned_pos,
                 query_highlight_color=query_highlight_color,
             )
+            logger.info("Saved attention difference plot for aligned query: %s", query_name)
+
             plot_difference.plot_difference(
                 attn_diff_scores=diff_target_aligned,
                 protein_name=target_name,
@@ -374,6 +400,7 @@ def run_pipeline(
                 target_highlight_positions=target_aligned_pos,
                 target_highlight_color=target_highlight_color,
             )
+            logger.info("Saved attention difference plot for aligned target: %s", target_name)
 
     if not save_attention_npy:
         logger.info("Cleaning up empty attention directories...")
