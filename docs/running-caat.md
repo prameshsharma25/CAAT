@@ -18,7 +18,7 @@ poetry run python scripts/run_e2e_pipeline.py \
 |----------|---------|-------------|
 | `--query-seq-path` | - | Path to MSA or FASTA file |
 | `--query-name` | - | **Required.** Identifier for your query protein (e.g., `XCL1`) |
-| `--model-type` | `alphafold2_ptm` | AlphaFold model variant to use |
+| `--model-type` | `alphafold2` | AlphaFold model variant to use |
 | `--num-models` | `5` | Number of models to generate |
 | `--result-dir` | `results` | Output directory for PDB structures |
 | `--attention-output-dir` | `attention_outputs` | Directory for raw attention files |
@@ -57,7 +57,7 @@ poetry run python scripts/run_attention_heads.py \
 |----------|---------|-------------|
 | `--query-seq-path` | - | Path to input MSA (`.a3m`) or FASTA file |
 | `--query-name` | - | **Required.** Protein identifier |
-| `--model-type` | `alphafold2_ptm` | Model variant (e.g., `alphafold2_multimer_v3`) |
+| `--model-type` | `alphafold2` | Model variant (e.g., `alphafold2_multimer_v3`) |
 | `--attention-output-dir` | `attention_outputs` | Where to save `.npy` attention files |
 | `--result-dir` | `results` | Directory for final PDB structures |
 | `--num-models` | `5` | Number of models to run |
