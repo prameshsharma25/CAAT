@@ -52,7 +52,7 @@ jobs:
         working-directory: ./alphafold
 
       - name: Wait for PyPI Indexing
-        run: sleep 30s
+        run: sleep 60s
 
       - name: Update ColabFold Dependency
         run: |
