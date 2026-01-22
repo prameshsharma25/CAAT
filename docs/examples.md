@@ -24,6 +24,33 @@ poetry run python3 scripts/run_e2e_pipeline.py \
 
 Note: Requires GPU usage
 
+## Sequences
+
+### Raw Sequences
+Used for structure prediction. These must not contain gaps or dashes.
+
+XCL1
+```bash
+>xcl1
+VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT
+```
+
+ANC0
+```bash
+>anc0
+ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK
+```
+
+Alignment
+
+The gaps (-) define the residue-to-residue mapping.
+```bash
+>xcl1
+VGSEVSDKRTCVSLTTQRLPVSRIKTYTITE---GSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT
+>anc0
+-----ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK---
+```
+
 ## Results
 
 The pipeline generates several output visualizations that provide complementary views of the attention landscape.
