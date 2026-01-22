@@ -1,6 +1,6 @@
 # XCL1 Example: End-to-End Pipeline
 
-This example demonstrates a complete run of the E2E attention analysis pipeline using the XCL1 chemokine protein and its ancestral reconstruction Anc0. This comparison reveals evolutionarily significant attention patterns that may correspond to functional divergence between the modern and ancestral proteins.
+This example demonstrates a complete run of the E2E attention analysis pipeline using the human lymphotactin protein XCL1 (PDB ID 2jp1) and its ancestral reconstruction Anc0 (PDB ID 7JH1). This comparison reveals evolutionarily significant attention patterns that may correspond to functional divergence between the modern and ancestral proteins.
 
 ## Running the Pipeline
 
@@ -11,7 +11,7 @@ poetry run python3 scripts/run_e2e_pipeline.py \
   --query-name XCL1 \
   --target-name Anc0 \
   --target-seq-path examples/XCL1/anc0_seq.fa \
-  --alignment-path examples/XCL1/xcl1.fa
+  --alignment-path examples/XCL1/xcl1_anc0.a3m
 ```
 
 ### Parameters Explained
@@ -20,7 +20,7 @@ poetry run python3 scripts/run_e2e_pipeline.py \
 - `--query-name`: Display name for the query protein (XCL1)
 - `--target-name`: Display name for the target/reference protein (Anc0)
 - `--target-seq-path`: Path to the FASTA file containing the Anc0 ancestral sequence
-- `--alignment-path`: Path to the multiple sequence alignment file used for evolutionary context
+- `--alignment-path`: Path to the multiple sequence alignment file to align amino acids
 
 Note: Requires GPU usage
 
@@ -36,21 +36,21 @@ Average attention maps show the mean attention weights across all attention head
 
 ![XCL1 Average Attention](figures/XCL1/XCL1_average_attention.png)
 
-This heatmap displays the average attention pattern for the modern XCL1 protein. Brighter regions indicate positions that receive higher attention weights, suggesting structural or functional importance.
+This heatmap displays the average attention pattern for the modern XCL1 protein. Colored bars indicate amino acids that receive the highest attention, suggesting importance for AF2 folding. 
 
 #### Anc0 Average Attention
 
 ![Anc0 Average Attention](figures/XCL1/Anc0_average_attention.png)
 
-The ancestral Anc0 protein's average attention pattern serves as the evolutionary baseline. Comparing this to XCL1 reveals how attention patterns have shifted over evolutionary time.
+Anc0's average attention patterns reveals important amino acids to AF2 for a different fold for a related protein.  
 
 ### Attention Difference Maps
 
-The attention difference map is the **core analytical output** of this pipeline. It quantifies evolutionary divergence by computing the element-wise difference between modern and ancestral attention matrices.
+The attention difference map is the **core analytical output** of this pipeline. It computes the element-wise difference between two folds to see what is important to AF2 for each.
 
-**Calculation**: `Difference = Attention(XCL1) - Attention(Anc0)`
+**Calculation**: `Difference = +(Attention(XCL1) - Attention(Anc0)) * -(BLOSUM62 scores)`
 
-This subtraction highlights evolutionarily divergent "hotspots" where attention patterns have changed significantly.
+This subtraction highlights where attention patterns differ significantly.
 
 #### XCL1 Attention Difference (Query Perspective)
 
@@ -59,5 +59,3 @@ This subtraction highlights evolutionarily divergent "hotspots" where attention 
 #### Anc0 Attention Difference (Target Perspective)
 
 ![Anc0 Attention Difference](figures/XCL1/Anc0_attention_difference.png)
-
-The attention difference map from the ancestral protein's perspective provides the complementary view, highlighting which ancestral features have been retained or lost in the modern protein.

@@ -18,9 +18,13 @@ poetry run python scripts/run_e2e_pipeline.py \
 |----------|---------|-------------|
 | `--query-seq-path` | - | Path to MSA or FASTA file |
 | `--query-name` | - | **Required.** Identifier for your query protein (e.g., `XCL1`) |
+| `--target-name` | `None` | Identifier for target/reference protein (for comparative analysis) |
+| `--target-seq-path` | `None` | Path to target sequence file (for comparative analysis) |
+| `--alignment-path` | `None` | Path to MSA alignment file (for comparative analysis) |
 | `--model-type` | `alphafold2` | AlphaFold model variant to use |
 | `--num-models` | `5` | Number of models to generate |
 | `--result-dir` | `results` | Output directory for PDB structures |
+| `--save-attention-npy` | `False` | Export individual uncompressed attention heads |
 | `--attention-output-dir` | `attention_outputs` | Directory for raw attention files |
 | `--save-attention-compressed` | `False` | Save attention in compressed H5 format |
 | `--save-intermediate-structures` | `None` | Directory for intermediate structure outputs |
@@ -34,10 +38,6 @@ poetry run python scripts/run_e2e_pipeline.py \
 | `--target-highlight-indices` | `None` | Residue positions to highlight in target |
 | `--query-highlight-color` | `#AE0639` | Hex color for query highlights |
 | `--target-highlight-color` | `#1f77b4` | Hex color for target highlights |
-| `--save-attention-npy` | `False` | Export individual uncompressed attention heads |
-| `--target-name` | `None` | Identifier for target/reference protein (for comparative analysis) |
-| `--target-seq-path` | `None` | Path to target sequence file (for comparative analysis) |
-| `--alignment-path` | `None` | Path to MSA alignment file (for comparative analysis) |
 
 ---
 
@@ -108,13 +108,12 @@ poetry run python scripts/run_analysis_pipeline.py \
 | `--query-attn-dir` | - | **Required.** Directory containing `.npy` attention files for query |
 | `--query-name` | - | **Required.** Identifier for the query protein |
 | `--query-seq-path` | - | **Required.** Path to query sequence (`.a3m` or `.fasta`) |
-| `--output-dir` | `attention_visualizations` | Output directory for plots |
 | `--target-attn-dir` | `None` | Attention directory for target protein (for comparative analysis) |
 | `--target-name` | `None` | Target protein identifier (for comparative analysis) |
 | `--target-seq-path` | `None` | Target sequence file (for comparative analysis) |
 | `--alignment-path` | `None` | Alignment file mapping query to target (for comparative analysis) |
+| `--output-dir` | `attention_visualizations` | Output directory for plots |
 | `--query-highlight-indices` | `None` | Residues to highlight in query (1-indexed) |
 | `--target-highlight-indices` | `None` | Residues to highlight in target (1-indexed) |
 | `--query-highlight-color` | `#AE0639` | Hex color for query highlights |
 | `--target-highlight-color` | `#1f77b4` | Hex color for target highlights |
-| `--save-attention-npy` | `False` | Export processed attention as `.npy` |
