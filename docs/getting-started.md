@@ -1,6 +1,6 @@
 ## Installation
 
-CAAT uses **Poetry** for dependency management. Follow these steps to set up your environment.
+CAAT uses **Poetry** (2.2.1^) for dependency management. Follow these steps to set up your environment.
 
 ### 1. Clone the Repository
 ```bash
