@@ -41,6 +41,7 @@ importlib-metadata = "^8.6.1"
 #[tool.poetry.dev-dependencies]
 scipy = "^1.16.2"
 ml-collections = "^1.1.0"
+imageio-ffmpeg = "^0.6.0"
 [tool.poetry.group.dev.dependencies]
 # The latest version conflicts with tensorflow over typing-extensions
 black = "^23.1.0"

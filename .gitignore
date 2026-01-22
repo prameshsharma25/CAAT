@@ -12,3 +12,5 @@ __pycache__
 /attention_outputs
 *.a3m
 *.fa
+structures/
+morph_frames/
