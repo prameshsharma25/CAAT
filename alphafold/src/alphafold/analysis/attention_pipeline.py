@@ -118,6 +118,7 @@ def run_pipeline(
         query_important_indices,
     )
 
+    # Single-protein mode
     if not target_name and not target_attn_dir:
         output_subdir = Path(save_path) / query_name
         output_subdir.mkdir(parents=True, exist_ok=True)
@@ -144,6 +145,7 @@ def run_pipeline(
             output_subdir / f"{query_name}_average_attention.png",
         )
 
+    # Pairwise mode
     if target_name and target_attn_dir:
         logger.info("Reading target sequence file: %s", target_seq_path)
         target_sequence = process_attention.read_sequence_file(
@@ -155,6 +157,16 @@ def run_pipeline(
             list(target_highlight_indices) if target_highlight_indices else []
         )
         logger.info(f"Target highlight indices provided: {target_pos_highlights}")
+
+        if generate_alignment:
+            logger.info("Generating alignment file from sequences.")
+            alignment_path = align_sequence.generate_alignment_file(
+                query_seq=query_sequence,
+                target_seq=target_sequence,
+                query_name=query_name,
+                target_name=target_name,
+            )
+            logger.info("Alignment file generated at: %s", alignment_path)
 
         if (len(query_sequence) != len(target_sequence)) and not alignment_path:
             logger.error(
@@ -197,7 +209,8 @@ def run_pipeline(
         output_subdir.mkdir(parents=True, exist_ok=True)
         logger.info("Output directory created: %s", output_subdir)
 
-        if len(query_sequence) == len(target_sequence):
+        # Pairwise non-aligned mode
+        if len(query_sequence) == len(target_sequence) and not alignment_path:
             target_attn_min_max = process_attention.min_max(data=target_attn_avg)
             logger.info(f"Target attention after min-max: {target_attn_min_max}")
             target_zscores = zscore(target_attn_min_max)
@@ -276,14 +289,7 @@ def run_pipeline(
                 target_highlight_color=target_highlight_color,
             )
 
-        if generate_alignment:
-            alignment_path = align_sequence.generate_alignment_file(
-                query_seq=query_sequence,
-                target_seq=target_sequence,
-                query_name=query_name,
-                target_name=target_name,
-            )
-
+        # Aligned mode
         if alignment_path and target_name:
             logger.info(
                 "Processing aligned mode with alignment file: %s", alignment_path
