@@ -168,11 +168,12 @@ def set_is_triangle(new_is_triangle):
 
 def reset_attention_state():
   """Reset global attention bookkeeping between separate runs."""
-  global attention_head_counter, evoformer_loop_counter, is_triangle, attention_file
+  global attention_head_counter, evoformer_loop_counter, is_triangle, attention_file, intermediate_structures_dir
 
   attention_head_counter = 0
   evoformer_loop_counter = -1
   is_triangle = None
+  intermediate_structures_dir = None
 
   if attention_file is not None:
     attention_file.close()

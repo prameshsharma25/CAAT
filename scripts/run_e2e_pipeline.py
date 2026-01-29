@@ -128,7 +128,7 @@ def main() -> None:
         model_type=args.model_type,
         is_complex=is_complex_query,
         save_attention_compressed=args.save_attention_compressed,
-        save_intermediate_structures=args.save_intermediate_structures,
+        save_intermediate_structures=f"{args.save_intermediate_structures}/{args.query_name}"
     )
 
     logging.getLogger().setLevel(logging.INFO)
@@ -151,6 +151,7 @@ def main() -> None:
             model_type=args.model_type,
             is_complex=is_complex_target,
             save_attention_compressed=args.save_attention_compressed,
+            save_intermediate_structures=f"{args.save_intermediate_structures}/{args.target_name}"
         )
         logging.getLogger().setLevel(logging.INFO)
 
