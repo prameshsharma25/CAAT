@@ -91,6 +91,7 @@ def main() -> None:
         "--generate-alignment",
         action="store_true",
         help="If set, generates a pairwise alignment file from the query and target sequences.",
+        default=False,
     )
 
     comparison = parser.add_argument_group("comparison settings (optional)")
@@ -128,7 +129,7 @@ def main() -> None:
         model_type=args.model_type,
         is_complex=is_complex_query,
         save_attention_compressed=args.save_attention_compressed,
-        save_intermediate_structures=args.save_intermediate_structures,
+        save_intermediate_structures=f"{args.save_intermediate_structures}/{args.query_name}",
     )
 
     logging.getLogger().setLevel(logging.INFO)
@@ -151,11 +152,12 @@ def main() -> None:
             model_type=args.model_type,
             is_complex=is_complex_target,
             save_attention_compressed=args.save_attention_compressed,
+            save_intermediate_structures=f"{args.save_intermediate_structures}/{args.target_name}",
         )
         logging.getLogger().setLevel(logging.INFO)
 
     logger.info("Starting Attention Analysis: %s", args.query_name)
-
+    
     run_pipeline(
         query_seq_path=args.query_seq_path,
         query_attn_dir=str(query_attn_dir),
