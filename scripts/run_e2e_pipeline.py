@@ -120,6 +120,12 @@ def main() -> None:
     query_data, is_complex_query = get_queries(args.query_seq_path)
     logger.info("Generating Query Attention: %s", args.query_name)
 
+    query_intermediate_path = (
+        f"{args.save_intermediate_structures}/{args.query_name}"
+        if args.save_intermediate_structures
+        else None
+    )
+
     run(
         queries=query_data,
         result_dir=args.result_dir,
@@ -128,7 +134,7 @@ def main() -> None:
         model_type=args.model_type,
         is_complex=is_complex_query,
         save_attention_compressed=args.save_attention_compressed,
-        save_intermediate_structures=f"{args.save_intermediate_structures}/{args.query_name}"
+        save_intermediate_structures=query_intermediate_path,
     )
 
     logging.getLogger().setLevel(logging.INFO)
@@ -143,6 +149,13 @@ def main() -> None:
         target_data, is_complex_target = get_queries(args.target_seq_path)
 
         logger.info("Generating Target Attention: %s", args.target_name)
+
+        target_intermediate_path = (
+            f"{args.save_intermediate_structures}/{args.query_name}"
+            if args.save_intermediate_structures
+            else None
+        )
+
         run(
             queries=target_data,
             result_dir=args.result_dir,
@@ -151,7 +164,7 @@ def main() -> None:
             model_type=args.model_type,
             is_complex=is_complex_target,
             save_attention_compressed=args.save_attention_compressed,
-            save_intermediate_structures=f"{args.save_intermediate_structures}/{args.target_name}"
+            save_intermediate_structures=target_intermediate_path,
         )
         logging.getLogger().setLevel(logging.INFO)
 
