@@ -2,6 +2,7 @@ from pathlib import Path
 from Bio import Align
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+from Bio.Align import substitution_matrices
 
 
 def generate_alignment_file(
@@ -17,6 +18,9 @@ def generate_alignment_file(
 
     aligner = Align.PairwiseAligner()
     aligner.mode = "global"
+    aligner.substitution_matrix = substitution_matrices.load("BLOSUM62")
+    aligner.open_gap_score = -10.0
+    aligner.extend_gap_score = -0.5
 
     alignments = aligner.align(q_rec, t_rec)
     best_alignment = alignments[0]
