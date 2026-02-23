@@ -215,8 +215,14 @@ class TestRunPipelineAlignedMode:
             [70],
         )
         mock_find_important.return_value = np.array([5, 10])
-        mock_blosum.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
-        mock_calc_diff.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+        mock_blosum.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+        )
+        mock_calc_diff.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+        )
 
         mock_base_args["target_name"] = "anc0"
         mock_base_args["query_name"] = "xcl1"
@@ -280,8 +286,14 @@ class TestRunPipelineAlignedMode:
             [70],
         )
         mock_find_important.return_value = np.array([5, 10])
-        mock_blosum.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
-        mock_calc_diff.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+        mock_blosum.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+        )
+        mock_calc_diff.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+        )
 
         mock_base_args["target_name"] = "anc0"
         mock_base_args["query_name"] = "xcl1"
@@ -321,7 +333,7 @@ class TestRunPipelineAlignedMode:
         """Test that mismatched sequence lengths without alignment_path calls sys.exit."""
         mock_read_seq.side_effect = [
             "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT",  # len 70
-            "ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK",        # len 65
+            "ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK",  # len 65
         ]
         mock_get_n.return_value = 1
         mock_get_attn.return_value = np.random.rand(70, 70)
@@ -388,8 +400,14 @@ class TestRunPipelineAlignedMode:
             [70],
         )
         mock_find_important.return_value = np.array([5, 10])
-        mock_blosum.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
-        mock_calc_diff.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+        mock_blosum.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+        )
+        mock_calc_diff.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+        )
 
         mock_base_args["target_name"] = "anc0"
         mock_base_args["query_name"] = "xcl1"
