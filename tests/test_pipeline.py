@@ -12,6 +12,7 @@ from alphafold.analysis import (
     plot_difference,
     process_attention,
     align_sequence,
+    utils
 )
 
 
@@ -1162,3 +1163,61 @@ class TestGenerateAlignmentFile:
             align_sequence.generate_alignment_file(
                 "ACDEF", "", "query", "target", filename
             )
+
+
+class TestParseIndices:
+
+    def test_basic(self):
+        assert utils._parse_indices("1,2,3") == [1, 2, 3]
+
+    def test_none_input(self):
+        assert utils._parse_indices(None) is None
+
+    def test_empty_string(self):
+        assert utils._parse_indices("") is None
+
+    def test_whitespace_only(self):
+        assert utils._parse_indices("   ") is None
+
+    def test_with_spaces(self):
+        assert utils._parse_indices("1, 2, 3") == [1, 2, 3]
+
+    def test_single_value(self):
+        assert utils._parse_indices("5") == [5]
+
+    def test_invalid_values_skipped(self):
+        assert utils._parse_indices("1,abc,3") == [1, 3]
+
+    def test_all_invalid(self):
+        assert utils._parse_indices("abc,xyz") is None
+
+    def test_mixed_valid_invalid(self):
+        assert utils._parse_indices("1,2,abc,4") == [1, 2, 4]
+
+
+class TestMapIndicesToAligned:
+
+    def test_basic_no_gaps(self):
+        assert utils._map_indices_to_aligned("ACDEF", [1, 3, 5]) == [1, 3, 5]
+
+    def test_with_leading_gap(self):
+        # "-ACDEF": residue 1 is at aligned position 2
+        assert utils._map_indices_to_aligned("-ACDEF", [1]) == [2]
+
+    def test_with_internal_gap(self):
+        # "AC-DEF": residue 3 (D) is at aligned position 4
+        assert utils._map_indices_to_aligned("AC-DEF", [3]) == [4]
+
+    def test_with_multiple_gaps(self):
+        # "-A-CD-EF": positions are 2,4,5,7,8
+        assert utils._map_indices_to_aligned("-A-CD-EF", [1, 2, 3]) == [2, 4, 5]
+
+    def test_empty_indices(self):
+        assert utils._map_indices_to_aligned("ACDEF", []) == []
+
+    def test_none_indices(self):
+        assert utils._map_indices_to_aligned("ACDEF", None) == []
+
+    def test_index_out_of_range(self):
+        # Only 5 residues, index 6 should be ignored
+        assert utils._map_indices_to_aligned("ACDEF", [6]) == []
