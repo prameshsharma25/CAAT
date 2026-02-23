@@ -168,11 +168,12 @@ def set_is_triangle(new_is_triangle):
 
 def reset_attention_state():
   """Reset global attention bookkeeping between separate runs."""
-  global attention_head_counter, evoformer_loop_counter, is_triangle, attention_file
+  global attention_head_counter, evoformer_loop_counter, is_triangle, attention_file, intermediate_structures_dir
 
   attention_head_counter = 0
   evoformer_loop_counter = -1
   is_triangle = None
+  intermediate_structures_dir = None
 
   if attention_file is not None:
     attention_file.close()
@@ -376,14 +377,16 @@ class AlphaFoldIteration_noE(hk.Module):
 
 class AlphaFold_noE(hk.Module):
   """AlphaFold model"""
-  def __init__(self, config, attention_output_dir=None, save_attention_compressed=False, name='alphafold'):
+  def __init__(self, config, name='alphafold'):
     super().__init__(name=name)
     self.config = config
     self.global_config = config.global_config
 
     global attention_dir, _save_attention_compressed
-    attention_dir = attention_output_dir
-    _save_attention_compressed = save_attention_compressed
+    attention_dir = self.config.attention_output_dir
+
+    if self.config.save_attention_compressed:
+      _save_attention_compressed = self.config.save_attention_compressed
 
   def __call__(self, batch, is_training, return_representations=False, **kwargs):
     """Run the AlphaFold model"""
@@ -590,14 +593,14 @@ class AlphaFold(hk.Module):
   Jumper et al. (2021) Suppl. Alg. 2 "Inference"
   """
 
-  def __init__(self, config, attention_output_dir=None, save_attention_compressed=False, name='alphafold'):
+  def __init__(self, config, name='alphafold'):
     super().__init__(name=name)
     self.config = config
     self.global_config = config.global_config
 
     global attention_dir, _save_attention_compressed
-    attention_dir = attention_output_dir
-    _save_attention_compressed = save_attention_compressed
+    attention_dir = self.config.attention_output_dir
+    _save_attention_compressed = self.config.save_attention_compressed
 
   def __call__(
       self,

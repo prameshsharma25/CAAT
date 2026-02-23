@@ -26,8 +26,8 @@ def main():
     parser.add_argument(
         "--model-type",
         type=str,
-        default="alphafold2_ptm",
-        help="AlphaFold model type (e.g., alphafold2_ptm, alphafold2_multimer_v3).\nDefault: alphafold2_ptm",
+        default="alphafold2",
+        help="AlphaFold model type (e.g., alphafold2_ptm, alphafold2_multimer_v3).\nDefault: alphafold2",
     )
     parser.add_argument(
         "--attention-output-dir",
@@ -56,6 +56,7 @@ def main():
         "--save-attention-compressed",
         action="store_true",
         help="If set, exports compressed attention weights in H5 format to local disk.",
+        default=False,
     )
     parser.add_argument(
         "--save-intermediate-structures",

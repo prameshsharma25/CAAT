@@ -28,7 +28,7 @@ def main() -> None:
         type=str,
         help="Query MSA/Fasta file.",
     )
-    prediction.add_argument("--model-type", type=str, default="alphafold2_ptm")
+    prediction.add_argument("--model-type", type=str, default="alphafold2")
     prediction.add_argument("--num-models", type=int, default=5)
     prediction.add_argument("--result-dir", type=str, default="results")
     prediction.add_argument(
@@ -41,6 +41,7 @@ def main() -> None:
         "--save-attention-compressed",
         action="store_true",
         help="If set, exports compressed attention weights in H5 format to local disk.",
+        default=False,
     )
     prediction.add_argument(
         "--save-intermediate-structures",
@@ -84,6 +85,12 @@ def main() -> None:
         "--save-attention-npy",
         action="store_true",
         help="If set, exports individual uncompressed attention heads (.npy) to local disk.",
+        default=False,
+    )
+    analysis.add_argument(
+        "--generate-alignment",
+        action="store_true",
+        help="If set, generates a pairwise alignment file from the query and target sequences.",
     )
 
     comparison = parser.add_argument_group("comparison settings (optional)")
@@ -113,6 +120,12 @@ def main() -> None:
     query_data, is_complex_query = get_queries(args.query_seq_path)
     logger.info("Generating Query Attention: %s", args.query_name)
 
+    query_intermediate_path = (
+        f"{args.save_intermediate_structures}/{args.query_name}"
+        if args.save_intermediate_structures
+        else None
+    )
+
     run(
         queries=query_data,
         result_dir=args.result_dir,
@@ -121,7 +134,7 @@ def main() -> None:
         model_type=args.model_type,
         is_complex=is_complex_query,
         save_attention_compressed=args.save_attention_compressed,
-        save_intermediate_structures=args.save_intermediate_structures,
+        save_intermediate_structures=query_intermediate_path,
     )
 
     logging.getLogger().setLevel(logging.INFO)
@@ -136,6 +149,13 @@ def main() -> None:
         target_data, is_complex_target = get_queries(args.target_seq_path)
 
         logger.info("Generating Target Attention: %s", args.target_name)
+
+        target_intermediate_path = (
+            f"{args.save_intermediate_structures}/{args.query_name}"
+            if args.save_intermediate_structures
+            else None
+        )
+
         run(
             queries=target_data,
             result_dir=args.result_dir,
@@ -144,6 +164,7 @@ def main() -> None:
             model_type=args.model_type,
             is_complex=is_complex_target,
             save_attention_compressed=args.save_attention_compressed,
+            save_intermediate_structures=target_intermediate_path,
         )
         logging.getLogger().setLevel(logging.INFO)
 
@@ -163,6 +184,7 @@ def main() -> None:
         query_highlight_color=args.query_highlight_color,
         target_highlight_color=args.target_highlight_color,
         save_attention_npy=args.save_attention_npy,
+        generate_alignment=args.generate_alignment,
     )
 
     logger.info("End-to-end pipeline complete. Results in %s", args.vis_output_dir)
