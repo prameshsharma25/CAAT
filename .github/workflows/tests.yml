@@ -36,6 +36,7 @@ jobs:
           poetry install
           poetry install -E alphafold
           poetry run pip install -e alphafold
+          poetry run pip install --no-warn-conflicts 'jax[cuda12]==0.4.28' jaxlib==0.4.28
 
       - name: Run tests with coverage
         run: |
