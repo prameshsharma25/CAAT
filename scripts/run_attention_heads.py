@@ -27,7 +27,7 @@ def main():
         "--model-type",
         type=str,
         default="alphafold2",
-        help="AlphaFold model type (e.g., alphafold2_ptm, alphafold2_multimer_v3).\nDefault: alphafold2_ptm",
+        help="AlphaFold model type (e.g., alphafold2_ptm, alphafold2_multimer_v3).\nDefault: alphafold2",
     )
     parser.add_argument(
         "--attention-output-dir",
