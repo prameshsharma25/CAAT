@@ -6,6 +6,9 @@
 
 The quickest way to get up and running with CAAT is to use the publicly available notebook with the GPU runtime. You can find that [here](https://colab.research.google.com/drive/11UVndoYaP5cQD7762o8rT0DRlyzSnTnn?usp=sharing).
 
+## CAAT Docs
+For an in-depth look into CAAT, you can access the docs [here](https://prameshsharma25.github.io/CAAT/).
+
 ## Coverage Report
 
 View coverage report [here](https://app.codecov.io/github/prameshsharma25/caat/tree/main).

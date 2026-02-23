@@ -14,3 +14,4 @@ __pycache__
 *.fa
 structures/
 morph_frames/
+/structures
