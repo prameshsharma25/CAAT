@@ -161,6 +161,247 @@ class TestPipelineBasic:
             run_pipeline(**mock_base_args)
 
 
+class TestRunPipelineAlignedMode:
+    """Tests for run_pipeline when alignment_path is provided."""
+
+    @mock.patch("alphafold.analysis.process_attention.read_sequence_file")
+    @mock.patch("alphafold.analysis.process_attention.get_n")
+    @mock.patch("alphafold.analysis.process_attention.get_attention")
+    @mock.patch("alphafold.analysis.process_attention.average")
+    @mock.patch("alphafold.analysis.process_attention.min_max")
+    @mock.patch("alphafold.analysis.process_attention.read_alignment")
+    @mock.patch("alphafold.analysis.process_attention.align_attention")
+    @mock.patch("alphafold.analysis.analyze_residue.find_important")
+    @mock.patch("alphafold.analysis.analyze_residue.find_highest_attention")
+    @mock.patch("alphafold.analysis.analyze_residue.blosum_scores")
+    @mock.patch("alphafold.analysis.analyze_residue.calculate_differences")
+    @mock.patch("alphafold.analysis.plot_difference.plot_attention")
+    @mock.patch("alphafold.analysis.plot_difference.plot_difference")
+    def test_run_pipeline_aligned_mode_creates_plots(
+        self,
+        mock_plot_diff,
+        mock_plot_attn,
+        mock_calc_diff,
+        mock_blosum,
+        mock_find_highest,
+        mock_find_important,
+        mock_align_attn,
+        mock_read_alignment,
+        mock_min_max,
+        mock_average,
+        mock_get_attn,
+        mock_get_n,
+        mock_read_seq,
+        mock_base_args,
+    ):
+        """Test that aligned mode calls plot_attention and plot_difference for both proteins."""
+        aligned_len = 71
+        mock_read_seq.side_effect = [
+            "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT",
+            "ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK",
+        ]
+        mock_get_n.return_value = 1
+        mock_get_attn.return_value = np.random.rand(70, 70)
+        mock_average.return_value = np.random.rand(70)
+        mock_min_max.return_value = np.random.rand(aligned_len)
+        mock_read_alignment.return_value = (
+            "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT-",
+            "-ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK----",
+        )
+        mock_align_attn.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+            [0],
+            [70],
+        )
+        mock_find_important.return_value = np.array([5, 10])
+        mock_blosum.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+        mock_calc_diff.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+
+        mock_base_args["target_name"] = "anc0"
+        mock_base_args["query_name"] = "xcl1"
+        mock_base_args["target_seq_path"] = "tests/test_data/target.fasta"
+        mock_base_args["target_attn_dir"] = "tests/test_data/target_attn"
+        mock_base_args["alignment_path"] = "tests/test_data/alignment.fa"
+
+        run_pipeline(**mock_base_args)
+
+        assert mock_plot_attn.call_count == 2
+        assert mock_plot_diff.call_count == 2
+
+    @mock.patch("alphafold.analysis.process_attention.read_sequence_file")
+    @mock.patch("alphafold.analysis.process_attention.get_n")
+    @mock.patch("alphafold.analysis.process_attention.get_attention")
+    @mock.patch("alphafold.analysis.process_attention.average")
+    @mock.patch("alphafold.analysis.process_attention.min_max")
+    @mock.patch("alphafold.analysis.process_attention.read_alignment")
+    @mock.patch("alphafold.analysis.process_attention.align_attention")
+    @mock.patch("alphafold.analysis.analyze_residue.find_important")
+    @mock.patch("alphafold.analysis.analyze_residue.find_highest_attention")
+    @mock.patch("alphafold.analysis.analyze_residue.blosum_scores")
+    @mock.patch("alphafold.analysis.analyze_residue.calculate_differences")
+    @mock.patch("alphafold.analysis.plot_difference.plot_attention")
+    @mock.patch("alphafold.analysis.plot_difference.plot_difference")
+    def test_run_pipeline_aligned_mode_with_highlights(
+        self,
+        mock_plot_diff,
+        mock_plot_attn,
+        mock_calc_diff,
+        mock_blosum,
+        mock_find_highest,
+        mock_find_important,
+        mock_align_attn,
+        mock_read_alignment,
+        mock_min_max,
+        mock_average,
+        mock_get_attn,
+        mock_get_n,
+        mock_read_seq,
+        mock_base_args,
+    ):
+        """Test aligned mode correctly maps highlight indices and passes them to plot_difference."""
+        aligned_len = 71
+        mock_read_seq.side_effect = [
+            "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT",
+            "ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK",
+        ]
+        mock_get_n.return_value = 1
+        mock_get_attn.return_value = np.random.rand(70, 70)
+        mock_average.return_value = np.random.rand(70)
+        mock_min_max.return_value = np.random.rand(aligned_len)
+        mock_read_alignment.return_value = (
+            "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT-",
+            "-ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK----",
+        )
+        mock_align_attn.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+            [0],
+            [70],
+        )
+        mock_find_important.return_value = np.array([5, 10])
+        mock_blosum.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+        mock_calc_diff.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+
+        mock_base_args["target_name"] = "anc0"
+        mock_base_args["query_name"] = "xcl1"
+        mock_base_args["target_seq_path"] = "tests/test_data/target.fasta"
+        mock_base_args["target_attn_dir"] = "tests/test_data/target_attn"
+        mock_base_args["alignment_path"] = "tests/test_data/alignment.fa"
+        mock_base_args["query_highlight_indices"] = [1, 5, 10]
+        mock_base_args["target_highlight_indices"] = [2, 6]
+
+        run_pipeline(**mock_base_args)
+
+        # plot_difference should be called with highlight positions for both
+        assert mock_plot_diff.call_count == 2
+        query_call_kwargs = mock_plot_diff.call_args_list[0].kwargs
+        assert "query_highlight_positions" in query_call_kwargs
+
+    @mock.patch("alphafold.analysis.process_attention.read_sequence_file")
+    @mock.patch("alphafold.analysis.process_attention.get_n")
+    @mock.patch("alphafold.analysis.process_attention.get_attention")
+    @mock.patch("alphafold.analysis.process_attention.average")
+    @mock.patch("alphafold.analysis.process_attention.min_max")
+    @mock.patch("alphafold.analysis.analyze_residue.find_important")
+    @mock.patch("alphafold.analysis.analyze_residue.find_highest_attention")
+    @mock.patch("alphafold.analysis.plot_difference.plot_attention")
+    def test_run_pipeline_length_mismatch_without_alignment_exits(
+        self,
+        mock_plot_attn,
+        mock_find_highest,
+        mock_find_important,
+        mock_min_max,
+        mock_average,
+        mock_get_attn,
+        mock_get_n,
+        mock_read_seq,
+        mock_base_args,
+    ):
+        """Test that mismatched sequence lengths without alignment_path calls sys.exit."""
+        mock_read_seq.side_effect = [
+            "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT",  # len 70
+            "ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK",        # len 65
+        ]
+        mock_get_n.return_value = 1
+        mock_get_attn.return_value = np.random.rand(70, 70)
+        mock_average.return_value = np.random.rand(70)
+        mock_min_max.return_value = np.random.rand(70)
+        mock_find_important.return_value = np.array([5, 10])
+
+        mock_base_args["target_name"] = "anc0"
+        mock_base_args["target_seq_path"] = "tests/test_data/target.fasta"
+        mock_base_args["target_attn_dir"] = "tests/test_data/target_attn"
+        mock_base_args["alignment_path"] = None
+
+        with pytest.raises(SystemExit):
+            run_pipeline(**mock_base_args)
+
+    @mock.patch("alphafold.analysis.process_attention.read_sequence_file")
+    @mock.patch("alphafold.analysis.process_attention.get_n")
+    @mock.patch("alphafold.analysis.process_attention.get_attention")
+    @mock.patch("alphafold.analysis.process_attention.average")
+    @mock.patch("alphafold.analysis.process_attention.min_max")
+    @mock.patch("alphafold.analysis.process_attention.read_alignment")
+    @mock.patch("alphafold.analysis.process_attention.align_attention")
+    @mock.patch("alphafold.analysis.analyze_residue.find_important")
+    @mock.patch("alphafold.analysis.analyze_residue.find_highest_attention")
+    @mock.patch("alphafold.analysis.analyze_residue.blosum_scores")
+    @mock.patch("alphafold.analysis.analyze_residue.calculate_differences")
+    @mock.patch("alphafold.analysis.plot_difference.plot_attention")
+    @mock.patch("alphafold.analysis.plot_difference.plot_difference")
+    def test_run_pipeline_aligned_find_highest_attention_called_for_both(
+        self,
+        mock_plot_diff,
+        mock_plot_attn,
+        mock_calc_diff,
+        mock_blosum,
+        mock_find_highest,
+        mock_find_important,
+        mock_align_attn,
+        mock_read_alignment,
+        mock_min_max,
+        mock_average,
+        mock_get_attn,
+        mock_get_n,
+        mock_read_seq,
+        mock_base_args,
+    ):
+        """Test that find_highest_attention is called for both query and target in aligned mode."""
+        aligned_len = 71
+        mock_read_seq.side_effect = [
+            "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT",
+            "ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK",
+        ]
+        mock_get_n.return_value = 1
+        mock_get_attn.return_value = np.random.rand(70, 70)
+        mock_average.return_value = np.random.rand(70)
+        mock_min_max.return_value = np.random.rand(aligned_len)
+        mock_read_alignment.return_value = (
+            "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT-",
+            "-ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK----",
+        )
+        mock_align_attn.return_value = (
+            np.random.rand(aligned_len),
+            np.random.rand(aligned_len),
+            [0],
+            [70],
+        )
+        mock_find_important.return_value = np.array([5, 10])
+        mock_blosum.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+        mock_calc_diff.return_value = (np.random.rand(aligned_len), np.random.rand(aligned_len))
+
+        mock_base_args["target_name"] = "anc0"
+        mock_base_args["query_name"] = "xcl1"
+        mock_base_args["target_seq_path"] = "tests/test_data/target.fasta"
+        mock_base_args["target_attn_dir"] = "tests/test_data/target_attn"
+        mock_base_args["alignment_path"] = "tests/test_data/alignment.fa"
+
+        run_pipeline(**mock_base_args)
+
+        assert mock_find_highest.call_count == 2
+
+
 class TestFindImportant:
     """Tests for residue importance analysis."""
 
