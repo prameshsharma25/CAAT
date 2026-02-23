@@ -7,7 +7,12 @@ from unittest import mock
 from pathlib import Path
 
 from alphafold.analysis.attention_pipeline import run_pipeline
-from alphafold.analysis import analyze_residue, plot_difference, process_attention
+from alphafold.analysis import (
+    analyze_residue,
+    plot_difference,
+    process_attention,
+    align_sequence,
+)
 
 
 @pytest.fixture
@@ -647,7 +652,7 @@ class TestMinMax:
 
         normalized = process_attention.min_max(data)
 
-        expected = np.array([0, 1/3, 2/3, 1.0])
+        expected = np.array([0, 1 / 3, 2 / 3, 1.0])
         np.testing.assert_array_almost_equal(normalized, expected)
 
     def test_min_max_with_zeros(self):
@@ -846,3 +851,55 @@ class TestAlignAttention:
         assert len(aligned2) == len(seq2), "aligned2 length should match seq2"
         assert isinstance(gaps1, list), "gaps1 should be a list"
         assert isinstance(gaps2, list), "gaps2 should be a list"
+
+
+class TestGenerateAlignmentFile:
+    def test_alignment_file_success(self, tmp_path):
+        """Test alignment file generation with valid inputs"""
+        query_name, target_name = "xcl1", "anc0"
+        query_seq = (
+            "VGSEVSDKRTCVSLTTQRLPVSRIKTYTITEGSLRAVIFITKRGLKVCADPQATWVRDVVRSMDRKSNT"
+        )
+        target_seq = "ARKSCCLKYTKRPLPLKRIKSYTIQSNEACNIKAIIFTTKKGRKICANPNEKWVQKAMKHLDKK"
+        filename = str(tmp_path / "alignment.fa")
+
+        result = align_sequence.generate_alignment_file(
+            query_seq, target_seq, query_name, target_name
+        )
+        assert Path(result).exists()
+
+    def test_alignment_file_contains_both_sequences(self, tmp_path):
+        """Test that bot query and target sequences appear in the output"""
+        filename = str(tmp_path / "alignment.fa")
+        result = align_sequence.generate_alignment_file(
+            "ACDEF", "GHIKL", "query", "target", filename
+        )
+        content = Path(result).read_text()
+        lines = [l for l in content.splitlines() if not l.startswith(">")]
+        assert len(lines) >= 2
+
+    def test_alignment_file_query_name_in_output(self, tmp_path):
+        """Test that the query name appears in the output file header"""
+        filename = str(tmp_path / "alignment.fa")
+        result = align_sequence.generate_alignment_file(
+            "ACDEF", "GHIKL", "MY_QUERY", "MY_TARGET", filename
+        )
+        content = Path(result).read_text()
+        assert "MY_QUERY" in content
+        assert "MY_TARGET" in content
+
+    def test_alignment_file_failure_empty_query(self, tmp_path):
+        """Test that empty query sequence raises an error"""
+        filename = str(tmp_path / "alignment.fa")
+        with pytest.raises(Exception):
+            align_sequence.generate_alignment_file(
+                "", "ACDEF", "query", "target", filename
+            )
+
+    def test_alignment_file_failure_empty_target(self, tmp_path):
+        """Test that empty target sequence raises an error"""
+        filename = str(tmp_path / "alignment.fa")
+        with pytest.raises(Exception):
+            align_sequence.generate_alignment_file(
+                "ACDEF", "", "query", "target", filename
+            )

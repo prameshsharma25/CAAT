@@ -10,8 +10,8 @@ __pycache__
 .DS_Store
 /attention_visualizations
 /attention_outputs
+/morph_frames/
+/structures
+/env
 *.a3m
 *.fa
-structures/
-morph_frames/
-/structures

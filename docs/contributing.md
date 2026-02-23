@@ -8,12 +8,12 @@ We welcome feedback, questions, and collaborations. If you encounter issues or h
 
 | Name | Affiliation | Contact |
 | :--- | :--- | :--- |
-| **Suchethan Dontha** | University of Maryland | [sdontha@umd.edu](mailto:sdontha@umd.edu) |
-| **Madeleine Clore** | National Institutes of Health | [madeleine.clore@nih.gov](mailto:madeleine.clore@nih.gov) |
-| **Pramesh Sharma** | National Institutes of Health | [pramesh.sharma@nih.gov](mailto:pramesh.sharma@nih.gov) |
-| **Joey Thole** | National Institutes of Health | [joseph.thole@nih.gov](mailto:joseph.thole@nih.gov) |
-| **Matthew Coudron** | University of Maryland | [mcoudron@umd.edu](mailto:mcoudron@umd.edu) |
-| **Lauren L. Porter** | National Institutes of Health | [lauren.porter@nih.gov](mailto:lauren.porter@nih.gov) |
+| **Suchethan Dontha** | University of Maryland | sdontha at umd dot edu |
+| **Madeleine Clore** | National Institutes of Health | madeleine dot clore at nih dot gov |
+| **Pramesh Sharma** | National Institutes of Health | pramesh dot sharma at nih dot gov |
+| **Joey Thole** | National Institutes of Health | joseph dot thole at nih dot gov |
+| **Matthew Coudron** | University of Maryland | mcoudron at umd dot edu |
+| **Lauren L. Porter** | National Institutes of Health | lauren dot porter at nih dot gov |
 
 ---
 

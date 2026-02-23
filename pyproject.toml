@@ -21,7 +21,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = ">=3.11"
 absl-py = { version = "^1.0.0", optional = true }
-jax = { version = "^0.5.2", optional = true }
+jax = { version = "^0.4.28", optional = true }
 matplotlib = "^3.8.4"
 tensorflow-cpu = { version = "^2.16.2", markers = "platform_machine != 'aarch64' and platform_machine != 'arm64'", optional = true }
 tensorflow = { version = "^2.16.2", markers = "platform_machine == 'aarch64' or platform_machine == 'arm64'", optional = true }
@@ -29,7 +29,7 @@ biopython = "<1.86"
 numpy = "^2.0.2"
 pandas = "^2.2.2"
 alphafold-attention = "^0.0.21"
-#alphafold-attention = { path = "./alphafold", develop = true, optional = true }
+#alphafold-attention = { path = "./alphafold", develop = true }
 requests = "^2.26.0"
 tqdm = "^4.62.2"
 appdirs = "^1.4.4"

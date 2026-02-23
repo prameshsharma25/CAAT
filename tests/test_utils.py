@@ -6,7 +6,10 @@ from colabfold.batch import get_queries, convert_pdb_to_mmcif, validate_and_fix_
 def test_get_queries_fasta_dir(pytestconfig, caplog):
     dir_path = pytestconfig.rootpath.joinpath("test-data/batch/input")
     queries, is_complex = get_queries(dir_path)
-    assert queries == [("5AWL_1", "YYDPETGTWY", None, None), ("6A5J", "IKKILSKIKKLLK", None, None)]
+    assert queries == [
+        ("5AWL_1", "YYDPETGTWY", None, None),
+        ("6A5J", "IKKILSKIKKLLK", None, None),
+    ]
     assert not is_complex
     assert caplog.messages == [f"{dir_path}/empty.fasta is empty"]
 
@@ -31,7 +34,7 @@ def test_get_queries_csv(pytestconfig, caplog, tmp_path):
                 "MPYTVRFTTTARRDLHKLPPRILAAVVEFAFGDLSREPLRVGKPLRRELAGTFSARRGTYRLLYRIDDEHTTVVILRVDHRADIYRR",
             ],
             None,
-            None
+            None,
         ),
     ]
     assert is_complex
