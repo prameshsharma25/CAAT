@@ -32,6 +32,6 @@ jobs:
 
           apptainer delete -F library://prameshsharma25/caat-project/caat:latest || echo "Nothing to delete"
 
-          apptainer push caat.sif library://prameshsharma25/caat-project/caat:latest
+          apptainer push -U caat.sif library://prameshsharma25/caat-project/caat:latest
 
           rm .sylabs-token
