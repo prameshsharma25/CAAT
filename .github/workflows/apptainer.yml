@@ -18,7 +18,8 @@ jobs:
           sudo apt-get install -y apptainer
 
       - name: Login to Sylabs Cloud
-        run: apptainer remote login --token ${{ secrets.SYLABS_TOKEN }}
+        run: |
+          echo "${{ secrets.SYLABS_TOKEN }}" | apptainer remote login --password-stdin library://cloud.sylabs.io
 
       - name: Clean up old image
         run: |
