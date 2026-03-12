@@ -26,7 +26,9 @@ jobs:
           sudo singularity build caat.sif images/caat.def
 
           singularity remote use SylabsCloud
-          echo "$SYLABS_TOKEN" | singularity remote login --password-stdin SylabsCloud
+          echo "$SYLABS_TOKEN" > .sylabs-token
+          chmod 600 .sylabs-token
+          singularity remote login --tokenfile .sylabs-token SylabsCloud
 
           IMAGE_PATH="library://prameshsharma25/caat-project/caat:latest"
           
