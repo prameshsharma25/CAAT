@@ -31,4 +31,4 @@ jobs:
         run: apptainer build caat.sif images/caat.def
 
       - name: Push to Sylabs Library
-        run: apptainer push caat.sif library://sharmapk/caat/caat:latest
+        run: apptainer push caat.sif library://prameshsharma25/caat-project/caat:latest
