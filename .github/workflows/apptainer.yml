@@ -25,9 +25,12 @@ jobs:
         run: |
           sudo singularity build caat.sif images/caat.def
 
-          echo "$SYLABS_TOKEN" | singularity remote login --password-stdin cloud.sylabs.io
-          
+          singularity remote add --no-login SylabsCloud cloud.sylabs.io
+          singularity remote use SylabsCloud
+          echo "$SYLABS_TOKEN" | singularity remote login --password-stdin
+
           IMAGE_PATH="library://prameshsharma25/caat-project/caat:latest"
           
           singularity library delete -f $IMAGE_PATH || echo "Nothing to delete"
+          
           singularity push caat.sif $IMAGE_PATH
