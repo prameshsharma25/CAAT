@@ -19,18 +19,19 @@ jobs:
           wget https://github.com/sylabs/singularity/releases/download/v${SY_VER}/singularity-ce_${SY_VER}-focal_amd64.deb
           sudo apt-get install -y ./singularity-ce_${SY_VER}-focal_amd64.deb
 
-      - name: Build and Push
+      - name: Build, Auth, and Push
         env:
           SYLABS_TOKEN: ${{ secrets.SYLABS_TOKEN }}
         run: |
           sudo singularity build caat.sif images/caat.def
 
-          singularity remote add --no-login SylabsCloud cloud.sylabs.io
-          singularity remote use SylabsCloud
-          echo "$SYLABS_TOKEN" | singularity remote login --password-stdin
+          sudo singularity remote add --force --no-login SylabsCloud cloud.sylabs.io
+          sudo singularity remote use SylabsCloud
+          
+          echo "$SYLABS_TOKEN" | sudo singularity remote login --password-stdin
 
           IMAGE_PATH="library://prameshsharma25/caat-project/caat:latest"
           
-          singularity library delete -f $IMAGE_PATH || echo "Nothing to delete"
+          sudo singularity library delete -f $IMAGE_PATH || echo "Nothing to delete"
           
-          singularity push caat.sif $IMAGE_PATH
+          sudo singularity push caat.sif $IMAGE_PATH
