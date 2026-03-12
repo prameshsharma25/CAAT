@@ -32,6 +32,8 @@ jobs:
 
           apptainer delete -F library://prameshsharma25/caat-project/caat:latest || echo "Nothing to delete"
 
-          apptainer push -U caat.sif library://prameshsharma25/caat-project/caat:latest
+          IMAGE_PATH="library://cloud.sylabs.io/prameshsharma25/caat-project/caat:latest"
+
+          apptainer -v push -U caat.sif $IMAGE_PATH
 
           rm .sylabs-token
