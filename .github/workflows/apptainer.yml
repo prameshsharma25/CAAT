@@ -34,4 +34,4 @@ jobs:
           
           singularity delete --arch amd64 -F $IMAGE_PATH || echo "Nothing to delete"
           
-          singularity push caat.sif $IMAGE_PATH
+          singularity push -U caat.sif $IMAGE_PATH
