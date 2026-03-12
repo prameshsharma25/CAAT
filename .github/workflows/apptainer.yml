@@ -1,0 +1,30 @@
+name: Build and Push to Sylabs
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  sylabs-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Apptainer
+        uses: e-v-a/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.0
+
+      - name: Login to Sylabs Cloud
+        run: apptainer remote login --token ${{ secrets.SYLABS_TOKEN }}
+
+      - name: Clean up old image
+        run: |
+          apptainer library delete -f library://prameshsharma25/caat-project/caat:latest || echo "No existing image to delete"
+
+      - name: Build SIF Image
+        run: apptainer build caat.sif images/caat.def
+
+      - name: Push to Sylabs Library
+        run: apptainer push caat.sif library://sharmapk/caat/caat:latest
