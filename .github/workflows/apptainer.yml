@@ -23,10 +23,15 @@ jobs:
         run: |
           apptainer build caat.sif images/caat.def
 
+          echo "$SYLABS_TOKEN" > .sylabs-token
+          chmod 600 .sylabs-token
+          
           apptainer remote add --no-login SylabsCloud cloud.sylabs.io
           apptainer remote use SylabsCloud
-          echo "$SYLABS_TOKEN" | apptainer remote login --password-stdin SylabsCloud
+          apptainer remote login --tokenfile .sylabs-token SylabsCloud
 
           apptainer delete -F library://prameshsharma25/caat-project/caat:latest || echo "Nothing to delete"
 
           apptainer push caat.sif library://prameshsharma25/caat-project/caat:latest
+
+          rm .sylabs-token
