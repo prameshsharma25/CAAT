@@ -25,7 +25,7 @@ jobs:
 
       - name: Clean up old image
         run: |
-          apptainer library delete -f library://prameshsharma25/caat-project/caat:latest || echo "No existing image to delete"
+          apptainer delete -f library://prameshsharma25/caat-project/caat:latest || echo "Nothing to delete"
 
       - name: Build SIF Image
         run: apptainer build caat.sif images/caat.def
