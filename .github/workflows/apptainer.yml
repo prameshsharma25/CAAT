@@ -19,7 +19,9 @@ jobs:
 
       - name: Login to Sylabs Cloud
         run: |
-          echo "${{ secrets.SYLABS_TOKEN }}" | apptainer registry login --password-stdin cloud.sylabs.io
+          apptainer remote add --no-login SylabsCloud cloud.sylabs.io
+          apptainer remote use SylabsCloud
+          echo "${{ secrets.SYLABS_TOKEN }}" | apptainer remote login --password-stdin SylabsCloud
 
       - name: Clean up old image
         run: |
