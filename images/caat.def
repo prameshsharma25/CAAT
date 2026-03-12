@@ -1,0 +1,40 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%post
+  export DEBIAN_FRONTEND=noninteractive
+  
+  # Install system dependencies
+  apt-get update && apt-get install -y \
+    git \
+    python3.11 \
+    python3.11-venv \
+    python3-pip \
+    wget \
+    curl
+
+  # Setup Poetry
+  pip3 install poetry
+
+  # Setup CAAT
+  git clone https://github.com/prameshsharma25/CAAT.git /opt/CAAT
+  cd /opt/CAAT
+
+  # Point to Python3.11
+  poetry config virtualenvs.in-project true
+  poetry env use python3.11
+
+  # Install CAAT dependencies
+  poetry install
+  poetry install -E alphafold
+
+  # GPU specific dependencies
+  poetry run pip install --no-warn-conflicts 'jax[cuda12]==0.4.28' jaxlib==0.4.28
+
+%environment
+  export LC_ALL=C.UTF-8
+  export PATH="/opt/CAAT/.venv/bin:/opt/CAAT:$PATH"
+
+%runscript
+  cd /opt/CAAT
+  exec poetry run python3 "$@"
