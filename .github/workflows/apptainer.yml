@@ -30,6 +30,6 @@ jobs:
 
           IMAGE_PATH="library://prameshsharma25/caat-project/caat:latest"
           
-          singularity library delete -f $IMAGE_PATH || echo "Nothing to delete"
+          singularity delete --arch amd64 -F $IMAGE_PATH || echo "Nothing to delete"
           
           singularity push caat.sif $IMAGE_PATH
