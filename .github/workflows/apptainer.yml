@@ -21,7 +21,7 @@ jobs:
         env:
           SYLABS_TOKEN: ${{ secrets.SYLABS_TOKEN }}
         run: |
-          apptainer build caat.sif images/caat.def
+          apptainer build --mksquashfs-arg -Xcompression-level --mksquashfs-arg 3 caat.sif images/caat.def
 
           echo "$SYLABS_TOKEN" > .sylabs-token
           chmod 600 .sylabs-token
