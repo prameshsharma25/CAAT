@@ -21,7 +21,7 @@ jobs:
         env:
           SYLABS_TOKEN: ${{ secrets.SYLABS_TOKEN }}
         run: |
-          apptainer build --mksquashfs-args "-comp zstd -Xcompression-level 7" caat.sif images/caat.def
+          apptainer build --mksquashfs-args "--comp gzip -Xcompression-level 9" caat.sif images/caat.def
           du -sh caat.sif
 
           echo "$SYLABS_TOKEN" > .sylabs-token
