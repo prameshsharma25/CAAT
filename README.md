@@ -23,7 +23,6 @@ You need **Python 3.11** and **Poetry** installed on your system.
 
 * **Python:** Install [Python 3.11](https://www.python.org/downloads/).
 * **Poetry:** Install it by following the official [Poetry installation guide](https://python-poetry.org/docs/#installation).
-
 ---
 
 ## Running Custom Attention Head Analysis Pipeline
@@ -54,6 +53,17 @@ To set up the project, you must first clone the repository and then install all 
     ```bash
     poetry run pip install --no-warn-conflicts 'jax[cuda12]==0.4.28' jaxlib==0.4.28
     ```
+    
+#### Note
+
+CAAT's default JAX dependency may not be compatible with your GPU hardware or CUDA driver version. If you encounter GPU-related errors (e.g., PTX compilation failures, CUDA OOM, or PJRT version mismatches), you may need to upgrade JAX after setting up the Poetry environment.
+
+Refer to the official JAX [installation guide](https://docs.jax.dev/en/latest/installation.html) to find the correct version for your hardware and CUDA setup, then override the default installation:
+
+```bash
+pip install "jax[cuda12]==<version>" "jax-cuda12-pjrt==<version>" \
+  -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+```
 ---
 
 ## 2. Running the Pipeline
