@@ -192,10 +192,12 @@ def plot_difference(
     Side effects:
         Saves a PNG named "{protein_name}_attention_difference.png" at 600 dpi in output_dir.
     """
-    negative_attention_diff_scores = [negative_only(x) for x in attn_diff_scores]
-    logger.info(
-        "Negative attention difference scores: %s", negative_attention_diff_scores
-    )
+    # negative_attention_diff_scores = [negative_only(x) for x in attn_diff_scores]
+    # logger.info(
+    #    "Negative attention difference scores: %s", negative_attention_diff_scores
+    # )
+
+    attn_diff_scores = list(attn_diff_scores)
 
     residue_indices = np.arange(1, len(attn_diff_scores) + 1)
     logger.info("Residue indices: %s", residue_indices)
@@ -219,7 +221,7 @@ def plot_difference(
         default_color="gray",
     )
 
-    ax.bar(residue_indices, negative_attention_diff_scores, color=bar_colors)
+    ax.bar(residue_indices, attn_diff_scores, color=bar_colors)
 
     if sequence:
         ax.set_xticks(residue_indices)

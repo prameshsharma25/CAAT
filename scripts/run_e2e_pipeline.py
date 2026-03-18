@@ -38,6 +38,68 @@ def main() -> None:
         help="Directory to save raw attention head NumPy files.\nDefault: attention_outputs",
     )
     prediction.add_argument(
+        "--query-num-recycles",
+        type=int,
+        default=3,
+        help="Number of recycles to run for query protein.\n",
+    )
+    prediction.add_argument(
+        "--target-num-recycles",
+        type=int,
+        default=3,
+        help="Number of recycles to run for target protein.\n",
+    )
+    prediction.add_argument(
+        "--query-num-models",
+        type=int,
+        default=5,
+        help="Number of models to run for query protein.\n",
+    )
+    prediction.add_argument(
+        "--target-num-models",
+        type=int,
+        default=5,
+        help="Number of models to run for target protein.\n",
+    )
+    prediction.add_argument(
+        "--query-model-order",
+        type=int,
+        nargs="+",
+        default=[1, 2, 3, 4, 5],
+        help="Order of models to run for query protein.\n",
+    )
+    prediction.add_argument(
+        "--target-model-order",
+        type=int,
+        nargs="+",
+        default=[1, 2, 3, 4, 5],
+        help="Order of models to run for target protein.\n",
+    )
+    prediction.add_argument(
+        "--query-random-seed",
+        type=int,
+        default=0,
+        help="Random seed for query protein.\n",
+    )
+    prediction.add_argument(
+        "--target-random-seed",
+        type=int,
+        default=0,
+        help="Random seed for target protein.\n",
+    )
+    prediction.add_argument(
+        "--query-num-seeds",
+        type=int,
+        default=1,
+        help="Seed number to run for query protein.\n",
+    )
+    prediction.add_argument(
+        "-target-num-seeds",
+        type=int,
+        default=1,
+        help="Seed number to run for target protein.\n",
+    )
+    prediction.add_argument(
         "--save-attention-compressed",
         action="store_true",
         help="If set, exports compressed attention weights in H5 format to local disk.",
@@ -88,6 +150,11 @@ def main() -> None:
         default=False,
     )
     analysis.add_argument(
+        "--plot-raw-weights",
+        action="store_true",
+        help="If set, plot attention differences with unmodified raw weights.",
+    )
+    analysis.add_argument(
         "--generate-alignment",
         action="store_true",
         help="If set, generates a pairwise alignment file from the query and target sequences.",
@@ -126,6 +193,7 @@ def main() -> None:
         else None
     )
 
+    # Query prediction run
     run(
         queries=query_data,
         result_dir=args.result_dir,
@@ -133,12 +201,17 @@ def main() -> None:
         attention_output_dir=str(query_attn_dir),
         model_type=args.model_type,
         is_complex=is_complex_query,
+        num_recycles=args.query_num_recycles,
+        random_seed=args.query_random_seed,
+        num_seeds=args.query_num_seeds,
+        model_order=args.query_model_order,
         save_attention_compressed=args.save_attention_compressed,
         save_intermediate_structures=query_intermediate_path,
     )
 
     logging.getLogger().setLevel(logging.INFO)
 
+    # Target prediciton run
     if args.target_seq_path and args.target_name:
         reset_attention_state()
 
@@ -163,6 +236,10 @@ def main() -> None:
             attention_output_dir=str(target_attn_dir),
             model_type=args.model_type,
             is_complex=is_complex_target,
+            num_recycles=args.target_num_recycles,
+            random_seed=args.target_random_seed,
+            num_seeds=args.target_num_seeds,
+            model_order=args.target_model_order,
             save_attention_compressed=args.save_attention_compressed,
             save_intermediate_structures=target_intermediate_path,
         )
@@ -184,6 +261,7 @@ def main() -> None:
         query_highlight_color=args.query_highlight_color,
         target_highlight_color=args.target_highlight_color,
         save_attention_npy=args.save_attention_npy,
+        plot_raw_weights=args.plot_raw_weights,
         generate_alignment=args.generate_alignment,
     )
 
