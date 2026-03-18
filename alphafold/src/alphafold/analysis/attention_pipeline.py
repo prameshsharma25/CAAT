@@ -283,6 +283,7 @@ def run_pipeline(
                     protein_name=query_name,
                     output_dir=str(output_subdir),
                     sequence=query_sequence,
+                    plot_raw_weights=True,
                     query_highlight_positions=query_pos_highlights,
                     query_highlight_color=query_highlight_color,
                 )
@@ -448,6 +449,7 @@ def run_pipeline(
                     protein_name=query_name,
                     output_dir=str(output_subdir),
                     sequence=query_sequence,
+                    plot_raw_weights=True,
                     query_highlight_positions=query_pos_highlights,
                     query_highlight_color=query_highlight_color,
                 )

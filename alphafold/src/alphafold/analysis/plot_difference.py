@@ -167,6 +167,7 @@ def plot_difference(
     sequence: Optional[str] = None,
     query_highlight_positions: Optional[List[int]] = None,
     target_highlight_positions: Optional[List[int]] = None,
+    plot_raw_weights bool = False,
     query_highlight_color: str = "#AE0639",
     target_highlight_color: str = "#1f77b4",
 ) -> None:
@@ -186,18 +187,24 @@ def plot_difference(
             labels are drawn on the top with periodic numeric indices.
         query_highlight_positions: optional list of 1-based indices to color as query.
         target_highlight_positions: optional list of 1-based indices to color as target.
+        plot_raw_weights: If set, raw weights will be plotted.
         query_highlight_color: color string for query highlights.
         target_highlight_color: color string for target highlights.
 
     Side effects:
         Saves a PNG named "{protein_name}_attention_difference.png" at 600 dpi in output_dir.
     """
-    # negative_attention_diff_scores = [negative_only(x) for x in attn_diff_scores]
-    # logger.info(
-    #    "Negative attention difference scores: %s", negative_attention_diff_scores
-    # )
+    if plot_raw_weights:
+        attn_diff_scores = list(attn_diff_scores)
+         logger.info(
+            "Raw attention difference scores: %s", attn_diff_scores
+        )
 
-    attn_diff_scores = list(attn_diff_scores)
+    else:
+        attn_diff_scores = [negative_only(x) for x in attn_diff_scores]
+        logger.info(
+            "Negative attention difference scores: %s", attn_diff_scores
+        )
 
     residue_indices = np.arange(1, len(attn_diff_scores) + 1)
     logger.info("Residue indices: %s", residue_indices)
