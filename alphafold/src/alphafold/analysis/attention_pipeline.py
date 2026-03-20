@@ -275,7 +275,7 @@ def run_pipeline(
                 sequence=target_sequence,
             )
 
-            if args.plot_raw_weights:
+            if plot_raw_weights:
                 raw_diff = query_attn_min_max - target_attn_min_max
 
                 plot_difference.plot_difference(
@@ -441,7 +441,7 @@ def run_pipeline(
             )
             logger.info("Saved aligned attention plot for target: %s", target_name)
 
-            if args.plot_raw_weights:
+            if plot_raw_weights:
                 raw_diff = query_aligned_mm - target_aligned_mm
 
                 plot_difference.plot_difference(
