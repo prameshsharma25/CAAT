@@ -410,6 +410,12 @@ class AlphaFold(hk.Module):
     self.config = config
     self.global_config = config.global_config
 
+    from alphafold.model import modules
+    if hasattr(self.config, 'attention_output_dir'):
+      modules.attention_dir = self.config.attention_output_dir
+    if hasattr(self.config, 'save_attention_compressed'):
+      modules._save_attention_compressed = self.config.save_attention_compressed
+
   def __call__(
       self,
       batch,
