@@ -607,12 +607,20 @@ def generate_intermediate_structures_from_representations(
         }
         
         # Run structure module
-        sm = folding.StructureModule(
-            config.heads.structure_module,
-            config.global_config,
-            compute_loss=False,
-            name='structure_module'
-        )
+        if "multimer" in model_type:
+            from alphafold.model import folding_multimer
+            sm = folding_multimer.StructureModule(
+                config.heads.structure_module,
+                config.global_config,
+                name='structure_module'
+            )
+        else:
+            sm = folding.StructureModule(
+                config.heads.structure_module,
+                config.global_config,
+                compute_loss=False,
+                name='structure_module'
+            )
         structure_output = sm(representations_dict, batch_dict, is_training=False)
         
         # Run pLDDT head on structure module output
@@ -705,6 +713,8 @@ def generate_intermediate_structures_from_representations(
                     'residue_index': residue_index,
                     'seq_mask': np.ones(num_res, dtype=np.float32),
                 }
+                if 'asym_id' in data['batch']:
+                    batch['asym_id'] = data['batch']['asym_id']
                 
                 # Add atom features
                 atom14_atom_exists = []
@@ -795,6 +805,8 @@ def generate_intermediate_structures_from_representations(
                 # Broadcast pLDDT scores to all atoms of each residue
                 b_factors = plddt_scores[:, np.newaxis] * final_atom_mask
                 
+                chain_idx = data['batch']['asym_id'] if 'asym_id' in data['batch'] else np.zeros(len(aatype), dtype=np.int32)
+
                 # Create PDB
                 pdb_protein = protein.Protein(
                     aatype=aatype,
@@ -802,7 +814,7 @@ def generate_intermediate_structures_from_representations(
                     atom_mask=final_atom_mask,
                     residue_index=residue_index + 1,
                     b_factors=b_factors,
-                    chain_index=np.zeros(len(aatype), dtype=np.int32)
+                    chain_index=chain_idx
                 )
                 
                 pdb_filename = repr_file.name.replace('_representations.pkl', '_structure.pdb')

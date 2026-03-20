@@ -300,6 +300,8 @@ def save_intermediate_representations(msa_act_first_row, pair_act, batch, loop_i
       'residue_index': squeeze_to_numpy(batch.get('residue_index', 
                                                    np.arange(len(batch['aatype'])))),
   }
+  if 'asym_id' in batch:
+      batch_info['asym_id'] = squeeze_to_numpy(batch['asym_id'])
   
   # Construct filename
   model_num = get_model_number() if get_model_number() is not None else 0
@@ -2019,7 +2021,10 @@ class EvoformerIteration(hk.Module):
     )
     global evoformer_loop_counter
 
-    c = self.config.embeddings_and_evoformer.evoformer
+    if hasattr(self.config, 'embeddings_and_evoformer'):
+      c = self.config.embeddings_and_evoformer.evoformer
+    else:
+      c = self.config
     gc = self.global_config
 
     msa_act, pair_act = activations['msa'], activations['pair']
