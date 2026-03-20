@@ -94,7 +94,7 @@ def main() -> None:
         help="Seed number to run for query protein.\n",
     )
     prediction.add_argument(
-        "-target-num-seeds",
+        "--target-num-seeds",
         type=int,
         default=1,
         help="Seed number to run for target protein.\n",
