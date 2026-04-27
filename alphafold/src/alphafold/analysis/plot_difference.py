@@ -140,7 +140,7 @@ def plot_attention(
         residue_indices,
     )
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(18, 14))
     ax.bar(residue_indices, attention_scores, color=bar_colors, zorder=1, alpha=0.8)
 
     if highlighted_scores is not None:
@@ -194,20 +194,22 @@ def plot_difference(
     Side effects:
         Saves a PNG named "{protein_name}_attention_difference.png" at 600 dpi in output_dir.
     """
+    figsize = None
     if plot_raw_weights:
         attn_diff_scores = list(attn_diff_scores)
-        logger.info("Raw attention difference scores: %s", attn_diff_scores)
+        figsize = (18, 14)
 
     else:
         attn_diff_scores = [negative_only(x) for x in attn_diff_scores]
         logger.info("Negative attention difference scores: %s", attn_diff_scores)
+        figsize = (8, 6)
 
     residue_indices = np.arange(1, len(attn_diff_scores) + 1)
     logger.info("Residue indices: %s", residue_indices)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=figsize)
 
     ax.xaxis.set_ticks_position("top")
     ax.xaxis.set_label_position("top")
