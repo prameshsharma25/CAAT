@@ -34,6 +34,7 @@ def run_pipeline(
     query_highlight_color: str = "#AE0639",
     target_highlight_color: str = "#1f77b4",
     save_attention_npy: bool = False,
+    plot_raw_weights: bool = False,
     generate_alignment: bool = False,
 ) -> None:
     """Run the end-to-end attention analysis and visualization pipeline.
@@ -64,6 +65,7 @@ def run_pipeline(
         query_highlight_color: Color string for query highlight bars.
         target_highlight_color: Color string for target highlight bars.
         save_attention_npy: If True, exports attention weights in .npy format to local disk.
+        plot_raw_weights: If True, plots attention differences with unmodified weights.
         generate_alignment: If True, generates a pairwise alignment file from the query and target sequences.
     Returns:
         None. Side effects include creating output directories, saving PNG plots
@@ -272,22 +274,36 @@ def run_pipeline(
                 output_dir=str(output_subdir),
                 sequence=target_sequence,
             )
-            plot_difference.plot_difference(
-                attn_diff_scores=query_diff,
-                protein_name=query_name,
-                output_dir=str(output_subdir),
-                sequence=query_sequence,
-                query_highlight_positions=query_pos_highlights,
-                query_highlight_color=query_highlight_color,
-            )
-            plot_difference.plot_difference(
-                attn_diff_scores=target_diff,
-                protein_name=target_name,
-                output_dir=str(output_subdir),
-                sequence=target_sequence,
-                target_highlight_positions=target_pos_highlights,
-                target_highlight_color=target_highlight_color,
-            )
+
+            if plot_raw_weights:
+                raw_diff = query_attn_min_max - target_attn_min_max
+
+                plot_difference.plot_difference(
+                    attn_diff_scores=raw_diff,
+                    protein_name=query_name,
+                    output_dir=str(output_subdir),
+                    sequence=query_sequence,
+                    plot_raw_weights=True,
+                    query_highlight_positions=query_pos_highlights,
+                    query_highlight_color=query_highlight_color,
+                )
+            else:
+                plot_difference.plot_difference(
+                    attn_diff_scores=query_diff,
+                    protein_name=query_name,
+                    output_dir=str(output_subdir),
+                    sequence=query_sequence,
+                    query_highlight_positions=query_pos_highlights,
+                    query_highlight_color=query_highlight_color,
+                )
+                plot_difference.plot_difference(
+                    attn_diff_scores=target_diff,
+                    protein_name=target_name,
+                    output_dir=str(output_subdir),
+                    sequence=target_sequence,
+                    target_highlight_positions=target_pos_highlights,
+                    target_highlight_color=target_highlight_color,
+                )
 
         # Aligned mode
         if alignment_path and target_name:
@@ -425,29 +441,45 @@ def run_pipeline(
             )
             logger.info("Saved aligned attention plot for target: %s", target_name)
 
-            plot_difference.plot_difference(
-                attn_diff_scores=diff_query_aligned,
-                protein_name=query_name,
-                output_dir=str(output_subdir),
-                sequence=aligned_seq_query,
-                query_highlight_positions=query_aligned_pos,
-                query_highlight_color=query_highlight_color,
-            )
-            logger.info(
-                "Saved attention difference plot for aligned query: %s", query_name
-            )
+            if plot_raw_weights:
+                raw_diff = query_aligned_mm - target_aligned_mm
 
-            plot_difference.plot_difference(
-                attn_diff_scores=diff_target_aligned,
-                protein_name=target_name,
-                output_dir=str(output_subdir),
-                sequence=aligned_seq_target,
-                target_highlight_positions=target_aligned_pos,
-                target_highlight_color=target_highlight_color,
-            )
-            logger.info(
-                "Saved attention difference plot for aligned target: %s", target_name
-            )
+                plot_difference.plot_difference(
+                    attn_diff_scores=raw_diff,
+                    protein_name=query_name,
+                    output_dir=str(output_subdir),
+                    sequence=query_sequence,
+                    plot_raw_weights=True,
+                    query_highlight_positions=query_pos_highlights,
+                    query_highlight_color=query_highlight_color,
+                )
+                logger.info("Saved attention difference plot for aligned raw weights")
+
+            else:
+                plot_difference.plot_difference(
+                    attn_diff_scores=diff_query_aligned,
+                    protein_name=query_name,
+                    output_dir=str(output_subdir),
+                    sequence=aligned_seq_query,
+                    query_highlight_positions=query_aligned_pos,
+                    query_highlight_color=query_highlight_color,
+                )
+                logger.info(
+                    "Saved attention difference plot for aligned query: %s", query_name
+                )
+
+                plot_difference.plot_difference(
+                    attn_diff_scores=diff_target_aligned,
+                    protein_name=target_name,
+                    output_dir=str(output_subdir),
+                    sequence=aligned_seq_target,
+                    target_highlight_positions=target_aligned_pos,
+                    target_highlight_color=target_highlight_color,
+                )
+                logger.info(
+                    "Saved attention difference plot for aligned target: %s",
+                    target_name,
+                )
 
     if not save_attention_npy:
         logger.info("Cleaning up empty attention directories...")

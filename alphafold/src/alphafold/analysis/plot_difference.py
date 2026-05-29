@@ -140,7 +140,7 @@ def plot_attention(
         residue_indices,
     )
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(18, 14))
     ax.bar(residue_indices, attention_scores, color=bar_colors, zorder=1, alpha=0.8)
 
     if highlighted_scores is not None:
@@ -167,6 +167,7 @@ def plot_difference(
     sequence: Optional[str] = None,
     query_highlight_positions: Optional[List[int]] = None,
     target_highlight_positions: Optional[List[int]] = None,
+    plot_raw_weights: bool = False,
     query_highlight_color: str = "#AE0639",
     target_highlight_color: str = "#1f77b4",
 ) -> None:
@@ -186,23 +187,29 @@ def plot_difference(
             labels are drawn on the top with periodic numeric indices.
         query_highlight_positions: optional list of 1-based indices to color as query.
         target_highlight_positions: optional list of 1-based indices to color as target.
+        plot_raw_weights: If set, raw weights will be plotted.
         query_highlight_color: color string for query highlights.
         target_highlight_color: color string for target highlights.
 
     Side effects:
         Saves a PNG named "{protein_name}_attention_difference.png" at 600 dpi in output_dir.
     """
-    negative_attention_diff_scores = [negative_only(x) for x in attn_diff_scores]
-    logger.info(
-        "Negative attention difference scores: %s", negative_attention_diff_scores
-    )
+    figsize = None
+    if plot_raw_weights:
+        attn_diff_scores = list(attn_diff_scores)
+        figsize = (18, 14)
+
+    else:
+        attn_diff_scores = [negative_only(x) for x in attn_diff_scores]
+        logger.info("Negative attention difference scores: %s", attn_diff_scores)
+        figsize = (8, 6)
 
     residue_indices = np.arange(1, len(attn_diff_scores) + 1)
     logger.info("Residue indices: %s", residue_indices)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=figsize)
 
     ax.xaxis.set_ticks_position("top")
     ax.xaxis.set_label_position("top")
@@ -219,7 +226,7 @@ def plot_difference(
         default_color="gray",
     )
 
-    ax.bar(residue_indices, negative_attention_diff_scores, color=bar_colors)
+    ax.bar(residue_indices, attn_diff_scores, color=bar_colors)
 
     if sequence:
         ax.set_xticks(residue_indices)

@@ -47,10 +47,35 @@ def main():
         help="Directory to save final PDB structures and metadata.\nDefault: results",
     )
     parser.add_argument(
+        "--num-recycles",
+        type=int,
+        default=3,
+        help="Number of recycles to run for each query.\nDefault: 3",
+    )
+    parser.add_argument(
         "--num-models",
         type=int,
         default=5,
         help="Number of models to run for each query.\nDefault: 5",
+    )
+    parser.add_argument(
+        "--model-order",
+        type=int,
+        nargs="+",
+        default=[1, 2, 3, 4, 5],
+        help="Order of models to run (e.g., --model-order 1 or --model-order 1 2 3).\nDefault: [1, 2, 3, 4, 5]",
+    )
+    parser.add_argument(
+        "--random-seed",
+        type=int,
+        default=0,
+        help="Random seed of prediction.\nDefault: 0",
+    )
+    parser.add_argument(
+        "--num-seeds",
+        type=int,
+        default=1,
+        help="Seed number of prediction.\nDefault: 1",
     )
     parser.add_argument(
         "--save-attention-compressed",
@@ -96,6 +121,10 @@ def main():
         attention_output_dir=str(query_attn_dir),
         model_type=args.model_type,
         is_complex=is_complex,
+        num_recycles=args.num_recycles,
+        random_seed=args.random_seed,
+        num_seeds=args.num_seeds,
+        model_order=args.model_order,
         save_attention_compressed=args.save_attention_compressed,
         save_intermediate_structures=args.save_intermediate_structures,
     )
