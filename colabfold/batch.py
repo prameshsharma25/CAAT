@@ -691,8 +691,6 @@ def generate_intermediate_structures_from_representations(
                         'errors': error_count
                     })
                     pbar.update(1)
-                    # Delete the pkl file after processing
-                    repr_file.unlink()
                     continue
                 
                 aatype = data['batch']['aatype']
@@ -817,9 +815,6 @@ def generate_intermediate_structures_from_representations(
                     'errors': error_count
                 })
                 
-                # Delete the pkl file after successful structure generation
-                repr_file.unlink()
-                
             except Exception as e:
                 error_count += 1
                 pbar.set_postfix({
@@ -827,15 +822,115 @@ def generate_intermediate_structures_from_representations(
                     'errors': error_count
                 })
                 logger.error(f"Error processing {repr_file.name}: {e}")
-                # Optionally delete the pkl file even on error to save space
-                # repr_file.unlink()
             
             finally:
                 pbar.update(1)
     
     # Summary
     logger.info(f"✓ Structure generation complete")
+
+
+def generate_intermediate_distograms_from_representations(
+    jobname: str,
+    model_runner_and_params,
+    distogram_output_dir: str,
+):
+    """Generate distograms from saved representations using the model runner directly."""
+    import pickle
+    from alphafold.model import modules
+    import haiku as hk
+    import jax
+    import jax.numpy as jnp
+    import numpy as np
+    from tqdm import tqdm
     
+    structures_dir = modules.intermediate_structures_dir
+    if structures_dir is None:
+        return
+    
+    structures_path = Path(structures_dir)
+    if not structures_path.exists():
+        return
+    
+    repr_files = sorted(structures_path.glob("*_representations.pkl"))
+    if not repr_files:
+        return
+        
+    out_dir = Path(distogram_output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Get the model runner and parameters
+    model_name, model_runner, trained_params = model_runner_and_params[0]
+    config = model_runner.config.model
+    
+    # Create a Haiku function solely for the DistogramHead
+    def distogram_fn(pair_repr):
+        representations_dict = {'pair': pair_repr}
+        distogram_head = modules.DistogramHead(
+            config.heads.distogram,
+            config.global_config,
+            name='distogram_head'
+        )
+        # Distogram head doesn't use the batch in __call__, so passing None is safe
+        return distogram_head(representations_dict, batch=None, is_training=False)
+        
+    distogram_transform = hk.transform(distogram_fn)
+    
+    # Extract parameters specifically for the Distogram head
+    distogram_head_prefix = 'alphafold/alphafold_iteration/distogram_head/'
+    distogram_params = {
+        k: v for k, v in trained_params.items() 
+        if k.startswith(distogram_head_prefix)
+    }
+    
+    # Reformat parameter keys to match our isolated Haiku transform
+    reformatted_params = {}
+    for k, v in distogram_params.items():
+        new_key = k.replace('alphafold/alphafold_iteration/', '')
+        reformatted_params[new_key] = v
+        
+    # Process with progress bar
+    with tqdm(total=len(repr_files), unit="file", desc="Generating Distograms") as pbar:
+        for repr_file in repr_files:
+            try:
+                with open(repr_file, 'rb') as f:
+                    data = pickle.load(f)
+                
+                loop_type = data.get('loop_type', 'unknown')
+                
+                # We usually only care about the main evoformer loop for distograms
+                if loop_type == 'extra_msa':
+                    pbar.update(1)
+                    continue
+                
+                # Get saved pair representation
+                pair_repr = np.array(data['pair'], dtype=np.float32)
+                pair_repr_jax = jnp.array(pair_repr)
+                
+                # Apply distogram head
+                rng = jax.random.PRNGKey(42)
+                distogram_output = distogram_transform.apply(
+                    reformatted_params,
+                    rng,
+                    pair_repr_jax
+                )
+                
+                # Extract logits and bin edges
+                logits = np.array(distogram_output['logits'])
+                bin_edges = np.array(distogram_output['bin_edges'])
+                
+                # Save to compressed numpy file
+                npz_filename = repr_file.name.replace('_representations.pkl', '_distogram.npz')
+                npz_path = out_dir / npz_filename
+                
+                np.savez_compressed(npz_path, logits=logits, bin_edges=bin_edges)
+                
+            except Exception as e:
+                logger.error(f"Error processing {repr_file.name}: {e}")
+            finally:
+                pbar.update(1)
+
+
 def get_msa_and_templates(
     jobname: str,
     query_sequences: Union[str, List[str]],
@@ -1377,6 +1472,7 @@ def run(
     attention_output_dir: str = None,
     save_attention_compressed: bool = False,
     save_intermediate_structures: str = None,
+    distogram_output_dir: str = None,
     jobname_prefix: Optional[str] = None,
     save_all: bool = False,
     save_recycles: bool = False,
@@ -1494,9 +1590,9 @@ def run(
     if initial_guess is not None:
         logger.info(f'Using initial guess: {initial_guess}')
 
-    # save intermediate structures
-    if save_intermediate_structures:
-        modules.intermediate_structures_dir = save_intermediate_structures
+    # save intermediate representations for structures/distograms
+    if save_intermediate_structures or distogram_output_dir:
+        modules.intermediate_structures_dir = save_intermediate_structures or distogram_output_dir
 
     # Record the parameters of this run
     config = {
@@ -1538,6 +1634,7 @@ def run(
         "attention_output_dir": attention_output_dir,
         "save_attention_compressed": save_attention_compressed,
         "save_intermediate_structures": save_intermediate_structures,
+        "distogram_output_dir": distogram_output_dir,
     }
     config_out_file = result_dir.joinpath("config.json")
     config_out_file.write_text(json.dumps(config, indent=4))
@@ -1755,7 +1852,7 @@ def run(
                 ranks.append(results["rank"])
                 metrics.append(results["metric"])
 
-                if modules.intermediate_structures_dir is not None:
+                if save_intermediate_structures is not None:
                     try:
                         logger.info("Generating intermediate structures...")
                         generate_intermediate_structures_from_representations(
@@ -1768,6 +1865,24 @@ def run(
                         logger.error(f"Failed to generate intermediate structures: {e}")
                         import traceback
                         traceback.print_exc()
+
+                if distogram_output_dir is not None:
+                    try:
+                        logger.info("Generating intermediate distograms...")
+                        generate_intermediate_distograms_from_representations(
+                            jobname=jobname,
+                            model_runner_and_params=model_runner_and_params,
+                            distogram_output_dir=distogram_output_dir
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to generate intermediate distograms: {e}")
+                        import traceback
+                        traceback.print_exc()
+                
+                # Clean up .pkl files after generation is complete
+                if modules.intermediate_structures_dir is not None:
+                    for pkl in Path(modules.intermediate_structures_dir).glob("*_representations.pkl"):
+                        pkl.unlink(missing_ok=True)
 
             except RuntimeError as e:
                 # This normally happens on OOM. TODO: Filter for the specific OOM error message
@@ -2170,6 +2285,12 @@ def main():
         help="Directory to save intermediate structures from each evoformer loop.",
     )
     output_group.add_argument(
+        "--distogram-output-dir",
+        default=None,
+        type=str,
+        help="Directory to save distogram heads from each evoformer loop.",
+    )
+    output_group.add_argument(
         "--stop-at-score",
         help="Compute models until pLDDT (single chain) or pTM-score (multimer) > threshold is reached. "
         "This speeds up prediction by running less models for easier queries.",
@@ -2386,6 +2507,7 @@ def main():
         use_gpu_relax = args.use_gpu_relax,
         attention_output_dir=args.attention_output_dir,
         save_intermediate_structures=args.save_intermediate_structures,
+        distogram_output_dir=args.distogram_output_dir,
         jobname_prefix=args.jobname_prefix,
         save_all=args.save_all,
         save_recycles=args.save_recycles,
