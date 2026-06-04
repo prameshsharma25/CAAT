@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from itertools import combinations
 
-import data.loader as loader
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
+
+import data.loader as loader
 from config import (
     DEFAULT_COLS,
     DIVERGING_SCALE,
@@ -186,28 +187,28 @@ def render_heads(s: AppState) -> None:
 def render_diff(s: AppState) -> None:
     st.subheader("Difference Map: Query vs. Target")
     st.caption(
-        "Select two tensors. The dashboard computes the residue×residue delta "
-        "(Query − Target) from their layer/head-averaged attention maps."
+        "Loads .npy files from the Query and Target directories set in the sidebar. "
+        "The dashboard computes the residue×residue delta (Query − Target) from "
+        "their layer/head-averaged attention maps."
     )
 
-    if len(s.npy_files) < 2:
-        st.info("Need at least 2 .npy files to compute a difference map.")
+    if not s.diff_ready:
+        st.info(
+            "Set both a **Query** and a **Target** output folder in the sidebar "
+            "to compute a difference map."
+        )
         return
 
     col_q, col_t = st.columns(2)
     q_file = col_q.selectbox(
-        "Query .npy", s.npy_files, format_func=lambda f: f.name, key="diff_q_sel"
+        "Query .npy", s.query_npy_files, format_func=lambda f: f.name, key="diff_q_sel"
     )
     t_file = col_t.selectbox(
         "Target .npy",
-        s.npy_files,
-        index=min(1, len(s.npy_files) - 1),
+        s.target_npy_files,
         format_func=lambda f: f.name,
         key="diff_t_sel",
     )
-
-    if q_file == t_file:
-        st.warning("Query and Target are the same file — delta will be zero.")
 
     with st.spinner("Computing difference map…"):
         delta = diff_map(loader.npy(q_file), loader.npy(t_file))
@@ -347,7 +348,7 @@ def render_gallery(s: AppState) -> None:
     n_cols = st.slider("Columns", 1, 4, DEFAULT_COLS, key="gallery_cols")
     cols = st.columns(n_cols)
     for i, img in enumerate(sorted(filtered, key=lambda f: f.name)):
-        cols[i % n_cols].image(img, caption=img.name, use_container_width=True)
+        cols[i % n_cols].image(str(img), caption=img.name, use_container_width=True)
 
 
 def render_3d(s: AppState) -> None:
@@ -394,6 +395,4 @@ def render_3d(s: AppState) -> None:
         )
         view.zoomTo()
         components.html(view._make_html(), height=520)
-        st.caption(
-            "🔵 Low attention  →  🔴 High attention  (scores in B-factor column)."
-        )
+        st.caption("🔵 Low attention  →  🔴 High attention  (scores in B-factor column).")

@@ -17,8 +17,12 @@ class AppState:
     pdb_files: list = field(default_factory=list)
     fasta_files: list = field(default_factory=list)
 
-    sequence: str = ""
+    query_dir: str = ""
+    target_dir: str = ""
+    query_npy_files: list = field(default_factory=list)
+    target_npy_files: list = field(default_factory=list)
 
+    sequence: str = ""
     threshold_pct: int = 90
     top_n: int = 10
 
@@ -41,6 +45,14 @@ class AppState:
         self.fasta_files = []
         self.save()
 
+    def reset_query_files(self) -> None:
+        self.query_npy_files = []
+        self.save()
+
+    def reset_target_files(self) -> None:
+        self.target_npy_files = []
+        self.save()
+
     def update_files(self, files: dict[str, list]) -> None:
         """Bulk-update file lists from a discover() / categorise_uploads() result."""
         self.npy_files = files.get("npy", [])
@@ -49,14 +61,28 @@ class AppState:
         self.fasta_files = files.get("fasta", [])
         self.save()
 
+    def update_query_files(self, files: dict[str, list]) -> None:
+        self.query_npy_files = files.get("npy", [])
+        self.save()
+
+    def update_target_files(self, files: dict[str, list]) -> None:
+        self.target_npy_files = files.get("npy", [])
+        self.save()
+
     @property
     def has_files(self) -> bool:
         return bool(self.npy_files or self.img_files or self.pdb_files)
+
+    @property
+    def diff_ready(self) -> bool:
+        return bool(self.query_npy_files and self.target_npy_files)
 
     def __repr__(self) -> str:
         return (
             f"AppState(run_dir={self.run_dir!r}, "
             f"npy={len(self.npy_files)}, img={len(self.img_files)}, "
             f"pdb={len(self.pdb_files)}, fasta={len(self.fasta_files)}, "
+            f"query_npy={len(self.query_npy_files)}, "
+            f"target_npy={len(self.target_npy_files)}, "
             f"threshold={self.threshold_pct}, top_n={self.top_n})"
         )
