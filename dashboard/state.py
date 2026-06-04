@@ -12,7 +12,6 @@ _SESSION_KEY = "_caat_state"
 @dataclass
 class AppState:
     run_dir: str = ""
-
     npy_files: list = field(default_factory=list)
     img_files: list = field(default_factory=list)
     pdb_files: list = field(default_factory=list)
