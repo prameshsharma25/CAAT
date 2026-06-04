@@ -11,7 +11,6 @@ import streamlit.components.v1 as components
 
 import data.loader as loader
 from config import (
-    DEFAULT_COLS,
     DIVERGING_SCALE,
     GRADIENT_CMAP,
     HEATMAP_SCALE,
@@ -20,8 +19,10 @@ from config import (
 from processing.attention import (
     diff_map,
     inject_bfactor,
+    mean_scores_across,
     normalise,
     residue_labels,
+    to_float,
     to_mean_scores,
 )
 from state import AppState
@@ -139,7 +140,7 @@ def render_heads(s: AppState) -> None:
         format_func=lambda f: f.name,
         key="head_npy_sel",
     )
-    arr = loader.npy(chosen)
+    arr = to_float(loader.npy(chosen))
 
     if arr.ndim != 4:
         st.warning(
@@ -324,33 +325,6 @@ def render_compare(s: AppState) -> None:
         st.plotly_chart(fig2, use_container_width=True)
 
 
-def render_gallery(s: AppState) -> None:
-    st.subheader("Pre-Rendered CAAT Graphs")
-    st.caption("Mean-attention and difference-map images already saved by CAAT.")
-
-    if not s.img_files:
-        st.info("No image files found in the selected directory.")
-        return
-
-    kw = st.text_input(
-        "Filter by filename",
-        placeholder="mean  /  diff  /  protein name…",
-        key="gallery_filter",
-    )
-    filtered = (
-        [f for f in s.img_files if kw.lower() in f.name.lower()] if kw else s.img_files
-    )
-
-    if not filtered:
-        st.warning("No images match that filter.")
-        return
-
-    n_cols = st.slider("Columns", 1, 4, DEFAULT_COLS, key="gallery_cols")
-    cols = st.columns(n_cols)
-    for i, img in enumerate(sorted(filtered, key=lambda f: f.name)):
-        cols[i % n_cols].image(str(img), caption=img.name, use_container_width=True)
-
-
 def render_3d(s: AppState) -> None:
     st.subheader("3D Structure — Residues Colored by Attention Score")
 
@@ -362,37 +336,58 @@ def render_3d(s: AppState) -> None:
         st.info("No .pdb files found in the selected directory.")
         return
 
-    col_p, col_s = st.columns(2)
-    chosen_pdb = col_p.selectbox(
+    chosen_pdb = st.selectbox(
         "PDB file", s.pdb_files, format_func=lambda f: f.name, key="3d_pdb_sel"
-    )
-
-    score_options = ["None (color by spectrum)"] + [f.name for f in s.npy_files]
-    chosen_score_name = col_s.selectbox(
-        "Attention tensor (.npy) — optional", score_options, key="3d_npy_sel"
     )
 
     pdb_text = loader.pdb(chosen_pdb)
     view = py3Dmol.view(width=720, height=520)
 
-    if chosen_score_name == "None (color by spectrum)":
+    if not s.npy_files:
+        # No tensors — fall back to spectrum coloring
         view.addModel(pdb_text, "pdb")
         view.setStyle({}, {"cartoon": {"color": "spectrum"}})
         view.zoomTo()
         components.html(view._make_html(), height=520)
         st.caption(
-            "Spectrum coloring. Select a .npy file to color residues by attention score."
+            "Spectrum coloring. Add .npy files in the sidebar to color by attention score."
+        )
+        return
+
+    st.caption(f"**{len(s.npy_files)}** tensors found — averaging all by default.")
+    filter_npy = st.toggle(
+        "Filter tensors to average", value=False, key="3d_npy_filter"
+    )
+
+    if filter_npy:
+        selected_npy = st.multiselect(
+            "Select tensors to include",
+            options=s.npy_files,
+            default=s.npy_files,
+            format_func=lambda f: f.name,
+            key="3d_npy_sel",
         )
     else:
-        npy_src = next(f for f in s.npy_files if f.name == chosen_score_name)
-        scores = to_mean_scores(loader.npy(npy_src))
-        norm = normalise(scores)
-        pdb_mod = inject_bfactor(pdb_text, norm)
+        selected_npy = s.npy_files
 
-        view.addModel(pdb_mod, "pdb")
-        view.setStyle(
-            {}, {"cartoon": {"colorscheme": {"prop": "b", "gradient": "rwb"}}}
-        )
-        view.zoomTo()
-        components.html(view._make_html(), height=520)
-        st.caption("🔵 Low attention  →  🔴 High attention  (scores in B-factor column).")
+    if not selected_npy:
+        st.info("Select at least one .npy file to color residues.")
+        return
+
+    with st.spinner(f"Averaging scores across {len(selected_npy)} tensor(s)…"):
+        arrays = [loader.npy(f) for f in selected_npy]
+        scores = mean_scores_across(arrays)
+
+    norm = normalise(scores)
+    pdb_mod = inject_bfactor(pdb_text, norm)
+
+    view.addModel(pdb_mod, "pdb")
+    view.setStyle({}, {"cartoon": {"colorscheme": {"prop": "b", "gradient": "rwb"}}})
+    view.zoomTo()
+    components.html(view._make_html(), height=520)
+
+    n_files = len(selected_npy)
+    st.caption(
+        f"Colored by mean attention averaged across **{n_files}** tensor(s).  "
+        "🔵 Low  →  🔴 High"
+    )
