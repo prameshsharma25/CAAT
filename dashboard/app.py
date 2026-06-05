@@ -12,7 +12,6 @@ st.set_page_config(
 )
 
 s = AppState.load()
-
 render_sidebar(s)
 
 tab_mean, tab_heads, tab_diff, tab_3d = st.tabs(

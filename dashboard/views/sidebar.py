@@ -1,78 +1,56 @@
 from pathlib import Path
 
 import streamlit as st
-
 from config import APP_VERSION
-from data.loader import discover
-from data.loader import fasta as load_fasta_src
+from data.loader import discover_npy, discover_viz
 from state import AppState
 
 
 def render(s: AppState) -> None:
     with st.sidebar:
-        st.title("🧬 CAAT Visualizer")
+        st.title("CAAT Visualizer")
         st.divider()
 
-        st.subheader("📂 Primary Output")
-        st.caption("Used by Mean Scores, Head Explorer, and 3D Structure.")
-        _dir_picker(
-            label="CAAT output folder",
-            dir_attr="run_dir",
-            s=s,
-            on_update=s.update_files,
-            on_reset=s.reset_files,
-            show_full_summary=True,
-        )
-
-        st.divider()
-
-        st.subheader("↔️ Difference Map Inputs")
-        st.caption("Query and Target can be separate CAAT runs.")
-
-        st.markdown("**Query**")
-        _dir_picker(
+        st.subheader("🔍 Query")
+        st.caption("Primary input — used by Mean Scores, Head Explorer, and Diff Map.")
+        _npy_picker(
             label="Query output folder",
             dir_attr="query_dir",
             s=s,
-            on_update=s.update_query_files,
-            on_reset=s.reset_query_files,
-        )
-
-        st.markdown("**Target**")
-        _dir_picker(
-            label="Target output folder",
-            dir_attr="target_dir",
-            s=s,
-            on_update=s.update_target_files,
-            on_reset=s.reset_target_files,
+            on_update=s.update_query,
+            on_reset=s.reset_query,
         )
 
         st.divider()
 
-        st.subheader("🔤 Sequence (optional)")
-        seq_src = st.radio(
-            "Source", ["Paste", "FASTA file"], horizontal=True, key="_seq_source"
+        st.subheader("🎯 Target  *(optional)*")
+        st.caption("When set, enables the Difference Map tab.")
+        _npy_picker(
+            label="Target output folder",
+            dir_attr="target_dir",
+            s=s,
+            on_update=s.update_target,
+            on_reset=s.reset_target,
         )
 
-        seq = ""
-        if seq_src == "FASTA file" and s.fasta_files:
-            chosen = st.selectbox(
-                "FASTA", s.fasta_files, format_func=lambda f: f.name, key="_fasta_sel"
-            )
-            try:
-                seq = load_fasta_src(chosen)
-                st.caption(f"{len(seq)} residues loaded.")
-            except Exception as e:
-                st.error(f"Could not parse FASTA: {e}")
-        else:
-            seq = st.text_area(
-                "Amino-acid sequence",
-                value=s.sequence,
-                height=80,
-                placeholder="MGSSHHHHHHSSGLVPRGSHMLE…",
-                key="_seq_paste",
-            )
+        st.divider()
 
+        st.subheader("🗂️ Visualizations")
+        st.caption(
+            "Folder containing residue ranking CSVs and PDB files for 3D structure."
+        )
+        _viz_picker(s)
+
+        st.divider()
+
+        st.subheader("🔤 Sequence  *(optional)*")
+        seq = st.text_area(
+            "Amino-acid sequence",
+            value=s.sequence,
+            height=80,
+            placeholder="MGSSHHHHHHSSGLVPRGSHMLE…",
+            key="_seq_paste",
+        )
         if seq != s.sequence:
             s.sequence = seq
             s.save()
@@ -88,7 +66,6 @@ def render(s: AppState) -> None:
             key="_threshold",
         )
         top_n = st.number_input("Top-N residues", 1, 500, value=s.top_n, key="_top_n")
-
         if pct != s.threshold_pct or int(top_n) != s.top_n:
             s.threshold_pct = pct
             s.top_n = int(top_n)
@@ -98,45 +75,70 @@ def render(s: AppState) -> None:
         st.caption(f"v{APP_VERSION}")
 
 
-def _dir_picker(
+def _npy_picker(
     *,
     label: str,
     dir_attr: str,
     s: AppState,
     on_update,
     on_reset,
-    show_full_summary: bool = False,
 ) -> None:
     current = getattr(s, dir_attr)
-    run_dir = st.text_input(
+    path = st.text_input(
         label,
         value=current,
         placeholder="/path/to/caat/outputs",
         key=f"_input_{dir_attr}",
     )
 
-    if run_dir != current:
-        setattr(s, dir_attr, run_dir)
+    if path != current:
+        setattr(s, dir_attr, path)
         on_reset()
 
-    if not run_dir:
+    if not path:
         return
 
-    p = Path(run_dir)
+    p = Path(path)
     if p.is_dir():
-        files = discover(run_dir)
+        files = discover_npy(path)
         on_update(files)
-        npy = len(files["npy"])
-        if npy == 0:
-            st.warning("No .npy files found.")
-        elif show_full_summary:
-            st.success(
-                f"**{npy}** .npy · "
-                f"**{len(files['pdb'])}** PDB · "
-                f"**{len(files['fasta'])}** FASTA"
-            )
-        else:
-            st.success(f"**{npy}** .npy files found.")
+        n = len(files["npy"])
+        (
+            st.success(f"**{n}** .npy file(s) found.")
+            if n
+            else st.warning("No .npy files found.")
+        )
     else:
         st.error("Directory not found.")
         on_reset()
+
+
+def _viz_picker(s: AppState) -> None:
+    current = s.viz_dir
+    path = st.text_input(
+        "Visualizations folder",
+        value=current,
+        placeholder="/path/to/caat/visualizations",
+        key="_input_viz_dir",
+    )
+
+    if path != current:
+        s.viz_dir = path
+        s.reset_viz()
+
+    if not path:
+        return
+
+    p = Path(path)
+    if p.is_dir():
+        files = discover_viz(path)
+        s.update_viz(files)
+        csv_n = len(files["csv"])
+        pdb_n = len(files["pdb"])
+        if csv_n + pdb_n == 0:
+            st.warning("No CSVs or PDBs found.")
+        else:
+            st.success(f"**{csv_n}** CSV · **{pdb_n}** PDB")
+    else:
+        st.error("Directory not found.")
+        s.reset_viz()

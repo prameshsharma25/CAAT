@@ -2,26 +2,21 @@ from __future__ import annotations
 
 from itertools import combinations
 
+import data.loader as loader
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
-
-import data.loader as loader
-from config import (
-    DIVERGING_SCALE,
-    GRADIENT_CMAP,
-    HEATMAP_SCALE,
-    MAX_HEADS_PER_ROW,
-)
+from config import DIVERGING_SCALE, GRADIENT_CMAP, HEATMAP_SCALE, MAX_HEADS_PER_ROW
 from processing.attention import (
     diff_map,
     inject_bfactor,
     mean_scores_across,
-    normalise,
+    merge_csv_scores,
     residue_labels,
+    scores_from_csv,
     to_float,
     to_mean_scores,
 )
@@ -41,13 +36,13 @@ def render(s: AppState) -> None:
         "Averaged over all layers, heads, and query positions from the raw tensor."
     )
 
-    if not s.npy_files:
-        st.info("Point the sidebar to a CAAT output directory containing .npy files.")
+    if not s.has_query:
+        st.info("Set a Query output folder in the sidebar.")
         return
 
     chosen = st.selectbox(
         "Attention tensor (.npy)",
-        s.npy_files,
+        s.query_npy_files,
         format_func=lambda f: f.name,
         key="mean_npy_sel",
     )
@@ -130,23 +125,20 @@ def render_heads(s: AppState) -> None:
     st.subheader("Attention Head Explorer")
     st.caption("Inspect individual attention heads from a raw (L × H × N × N) tensor.")
 
-    if not s.npy_files:
-        st.info("No .npy files found.")
+    if not s.has_query:
+        st.info("Set a Query output folder in the sidebar.")
         return
 
     chosen = st.selectbox(
         "Attention tensor (.npy)",
-        s.npy_files,
+        s.query_npy_files,
         format_func=lambda f: f.name,
         key="head_npy_sel",
     )
     arr = to_float(loader.npy(chosen))
 
     if arr.ndim != 4:
-        st.warning(
-            f"Expected shape (L, H, N, N) but got `{arr.shape}`. "
-            "This tab requires a raw ColabFold attention tensor."
-        )
+        st.warning(f"Expected shape (L, H, N, N) but got `{arr.shape}`.")
         return
 
     L, H, N, _ = arr.shape
@@ -188,16 +180,12 @@ def render_heads(s: AppState) -> None:
 def render_diff(s: AppState) -> None:
     st.subheader("Difference Map: Query vs. Target")
     st.caption(
-        "Loads .npy files from the Query and Target directories set in the sidebar. "
-        "The dashboard computes the residue×residue delta (Query − Target) from "
-        "their layer/head-averaged attention maps."
+        "Computes residue×residue delta (Query − Target) from raw attention tensors. "
+        "Set separate Query and Target folders in the sidebar."
     )
 
     if not s.diff_ready:
-        st.info(
-            "Set both a **Query** and a **Target** output folder in the sidebar "
-            "to compute a difference map."
-        )
+        st.info("Set both a Query and a Target output folder in the sidebar.")
         return
 
     col_q, col_t = st.columns(2)
@@ -251,80 +239,6 @@ def render_diff(s: AppState) -> None:
     st.plotly_chart(fig2, use_container_width=True)
 
 
-def render_compare(s: AppState) -> None:
-    st.subheader("Multi-Protein Mean Score Comparison")
-    st.caption("Overlay and diff mean attention profiles across multiple .npy files.")
-
-    if len(s.npy_files) < 2:
-        st.info("Load a directory with at least 2 .npy files to compare.")
-        return
-
-    selected = st.multiselect(
-        "Select proteins to overlay",
-        options=s.npy_files,
-        default=s.npy_files[: min(3, len(s.npy_files))],
-        format_func=lambda f: f.name,
-        key="compare_sel",
-    )
-
-    if not selected:
-        return
-
-    score_map: dict[str, np.ndarray] = {
-        f.name: to_mean_scores(loader.npy(f)) for f in selected
-    }
-
-    fig = go.Figure(
-        [
-            go.Scatter(
-                x=list(range(1, len(s) + 1)),
-                y=s,
-                mode="lines",
-                name=name,
-                hovertemplate=f"<b>{name}</b><br>Res %{{x}}<br>Score: %{{y:.5f}}<extra></extra>",
-            )
-            for name, s in score_map.items()
-        ]
-    )
-    fig.update_layout(
-        title="Overlaid Mean Attention Profiles",
-        xaxis_title="Residue Index",
-        yaxis_title="Mean Score",
-        height=420,
-        hovermode="x unified",
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    if len(selected) >= 2:
-        st.subheader("Pairwise Delta")
-        pairs = list(combinations(selected, 2))
-        pair = st.selectbox(
-            "Pair",
-            pairs,
-            format_func=lambda p: f"{p[0].name}  −  {p[1].name}",
-            key="compare_pair_sel",
-        )
-        s0, s1 = score_map[pair[0].name], score_map[pair[1].name]
-        mn = min(len(s0), len(s1))
-        d = s0[:mn] - s1[:mn]
-
-        fig2 = go.Figure(
-            go.Bar(
-                x=list(range(1, mn + 1)),
-                y=d,
-                marker_color=["crimson" if v > 0 else "steelblue" for v in d],
-                hovertemplate="Res %{x}<br>Δ: %{y:.5f}<extra></extra>",
-            )
-        )
-        fig2.update_layout(
-            title=f"{pair[0].name}  −  {pair[1].name}",
-            xaxis_title="Residue Index",
-            yaxis_title="Δ Score",
-            height=320,
-        )
-        st.plotly_chart(fig2, use_container_width=True)
-
-
 def render_3d(s: AppState) -> None:
     st.subheader("3D Structure — Residues Colored by Attention Score")
 
@@ -339,55 +253,50 @@ def render_3d(s: AppState) -> None:
     chosen_pdb = st.selectbox(
         "PDB file", s.pdb_files, format_func=lambda f: f.name, key="3d_pdb_sel"
     )
-
     pdb_text = loader.pdb(chosen_pdb)
     view = py3Dmol.view(width=720, height=520)
 
-    if not s.npy_files:
-        # No tensors — fall back to spectrum coloring
+    if not s.viz_ready:
         view.addModel(pdb_text, "pdb")
         view.setStyle({}, {"cartoon": {"color": "spectrum"}})
         view.zoomTo()
         components.html(view._make_html(), height=520)
         st.caption(
-            "Spectrum coloring. Add .npy files in the sidebar to color by attention score."
+            "Spectrum coloring. Add a Visualizations folder with CSVs to color by attention score."
         )
         return
 
-    st.caption(f"**{len(s.npy_files)}** tensors found — averaging all by default.")
-    filter_npy = st.toggle(
-        "Filter tensors to average", value=False, key="3d_npy_filter"
+    filter_csv = st.toggle("Filter CSVs to average", value=False, key="3d_csv_filter")
+    selected_csv = (
+        st.multiselect(
+            "Select CSVs to average",
+            options=s.csv_files,
+            default=s.csv_files,
+            format_func=lambda f: f.name,
+            key="3d_csv_sel",
+        )
+        if filter_csv
+        else s.csv_files
     )
 
-    if filter_npy:
-        selected_npy = st.multiselect(
-            "Select tensors to include",
-            options=s.npy_files,
-            default=s.npy_files,
-            format_func=lambda f: f.name,
-            key="3d_npy_sel",
-        )
-    else:
-        selected_npy = s.npy_files
-
-    if not selected_npy:
-        st.info("Select at least one .npy file to color residues.")
+    if not selected_csv:
+        st.info("Select at least one CSV.")
         return
 
-    with st.spinner(f"Averaging scores across {len(selected_npy)} tensor(s)…"):
-        arrays = [loader.npy(f) for f in selected_npy]
-        scores = mean_scores_across(arrays)
+    with st.spinner(f"Averaging scores across {len(selected_csv)} CSV(s)…"):
+        dfs = [loader.csv(f) for f in selected_csv]
+        res_nums, scores = merge_csv_scores(dfs)
 
-    norm = normalise(scores)
-    pdb_mod = inject_bfactor(pdb_text, norm)
+    col_lo, col_hi = st.columns(2)
+    low_pct = col_lo.slider("Color floor (percentile)", 0, 49, 5, key="3d_lo_pct")
+    high_pct = col_hi.slider("Color ceiling (percentile)", 51, 100, 95, key="3d_hi_pct")
 
+    pdb_mod = inject_bfactor(pdb_text, res_nums, scores, low_pct, high_pct)
     view.addModel(pdb_mod, "pdb")
     view.setStyle({}, {"cartoon": {"colorscheme": {"prop": "b", "gradient": "rwb"}}})
     view.zoomTo()
     components.html(view._make_html(), height=520)
-
-    n_files = len(selected_npy)
     st.caption(
-        f"Colored by mean attention averaged across **{n_files}** tensor(s).  "
-        "🔵 Low  →  🔴 High"
+        f"Averaged across **{len(selected_csv)}** CSV(s).  "
+        "🔵 Low attention  →  🔴 High attention"
     )

@@ -3,9 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import streamlit as st
-
-from config import IMAGE_EXTS
 
 try:
     from Bio import SeqIO
@@ -15,21 +14,33 @@ except ImportError:
     HAS_BIO = False
 
 
-def discover(run_dir: str) -> dict[str, list[Path]]:
-    """Walk run_dir and return categorised Path lists."""
+def discover_npy(run_dir: str) -> dict[str, list[Path]]:
+    """Discover .npy files from a query or target directory."""
     p = Path(run_dir)
     if not p.is_dir():
-        return {k: [] for k in ("npy", "pdb", "fasta")}
+        return {"npy": []}
+    return {"npy": sorted(p.glob("*.npy"))}
+
+
+def discover_viz(viz_dir: str) -> dict[str, list[Path]]:
+    """Discover CSVs and PDBs from the visualizations directory."""
+    p = Path(viz_dir)
+    if not p.is_dir():
+        return {"csv": [], "pdb": []}
     return {
-        "npy": sorted(p.glob("*.npy")),
+        "csv": sorted(p.glob("*_residue_ranking.csv")),
         "pdb": sorted(p.glob("*.pdb")),
-        "fasta": sorted(p.glob("*.fasta")) + sorted(p.glob("*.fa")),
     }
 
 
 @st.cache_data(show_spinner="Loading tensor…")
 def _load_npy(path: str) -> np.ndarray:
     return np.load(path)
+
+
+@st.cache_data(show_spinner="Loading ranking CSV…")
+def _load_csv(path: str) -> pd.DataFrame:
+    return pd.read_csv(path)
 
 
 @st.cache_data(show_spinner="Reading PDB…")
@@ -50,6 +61,10 @@ def _load_fasta(path: str) -> str:
 
 def npy(src: Path) -> np.ndarray:
     return _load_npy(str(src))
+
+
+def csv(src: Path) -> pd.DataFrame:
+    return _load_csv(str(src))
 
 
 def pdb(src: Path) -> str:

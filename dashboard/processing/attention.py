@@ -1,25 +1,20 @@
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 
 
 def to_float(arr: np.ndarray) -> np.ndarray:
     """
-    Ensure arr is a numeric float32 array.
-    ColabFold sometimes saves tensors as void/structured dtype (e.g. |V2);
-    we reinterpret the raw bytes as float16 then upcast to float32.
+    Ensure arr is numeric float32.
+    Handles ColabFold void dtypes (e.g. |V2 = float16 bytes).
     """
-    if arr.dtype.kind in ("f", "i", "u"):  # already numeric
+    if arr.dtype.kind in ("f", "i", "u"):
         return arr.astype(np.float32)
-    # Void dtype — reinterpret bytes. |V2 = 2 bytes → float16
-    byte_width = arr.dtype.itemsize
-    reinterpret_dtype = {2: np.float16, 4: np.float32, 8: np.float64}.get(byte_width)
-    if reinterpret_dtype is None:
-        raise ValueError(
-            f"Unrecognised dtype {arr.dtype} with itemsize {byte_width}. "
-            "Cannot reinterpret as a float type."
-        )
-    return arr.view(reinterpret_dtype).astype(np.float32)
+    reinterpret = {2: np.float16, 4: np.float32, 8: np.float64}.get(arr.dtype.itemsize)
+    if reinterpret is None:
+        raise ValueError(f"Cannot reinterpret dtype {arr.dtype} as float.")
+    return arr.view(reinterpret).astype(np.float32)
 
 
 def to_mean_scores(arr: np.ndarray) -> np.ndarray:
@@ -71,17 +66,11 @@ def diff_map(arr_q: np.ndarray, arr_t: np.ndarray) -> np.ndarray:
 def mean_scores_across(arrays: list[np.ndarray]) -> np.ndarray:
     """
     Average per-residue mean scores across multiple attention tensors.
-    Tensors may differ in sequence length — trims to the shortest.
+    Trims to the shortest sequence length.
     """
     scores = [to_mean_scores(a) for a in arrays]
     n = min(len(s) for s in scores)
     return np.stack([s[:n] for s in scores]).mean(axis=0)
-
-
-def normalise(scores: np.ndarray) -> np.ndarray:
-    """Min-max normalise to [0, 1]."""
-    lo, hi = scores.min(), scores.max()
-    return (scores - lo) / (hi - lo + 1e-9)
 
 
 def residue_labels(seq: str, n: int) -> list[str]:
@@ -91,35 +80,61 @@ def residue_labels(seq: str, n: int) -> list[str]:
     return [str(i + 1) for i in range(n)]
 
 
-def inject_bfactor(pdb_text: str, norm_scores: np.ndarray) -> str:
+def scores_from_csv(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     """
-    Rewrite the B-factor column of a PDB string with normalised attention
-    scores (scaled 0–100) for py3Dmol gradient colouring.
+    Parse a CAAT residue_ranking CSV.
 
-    Builds a mapping from PDB residue number → sequential index so that
-    non-contiguous or non-zero-based residue numbering is handled correctly.
+    Returns
+    -------
+    res_nums : (N,) int array   — residue numbers in sequence order
+    scores   : (N,) float array — attention scores aligned to res_nums
     """
-    res_nums: list[int] = []
-    seen: set[int] = set()
-    for line in pdb_text.splitlines():
-        if line.startswith(("ATOM", "HETATM")):
-            try:
-                rn = int(line[22:26].strip())
-                if rn not in seen:
-                    res_nums.append(rn)
-                    seen.add(rn)
-            except ValueError:
-                pass
+    df = df[df["Amino acid"] != "-"].copy()
+    df = df.sort_values("Residue number")
+    res_nums = df["Residue number"].to_numpy(dtype=int)
+    scores = df["Attention score"].to_numpy(dtype=float)
+    return res_nums, scores
 
-    res_to_idx = {rn: i for i, rn in enumerate(res_nums)}
+
+def merge_csv_scores(dfs: list[pd.DataFrame]) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Average attention scores across multiple ranking CSVs.
+    Aligns on residue number; only residues present in all files are kept.
+    """
+    parsed = [scores_from_csv(df) for df in dfs]
+    common = set(parsed[0][0])
+    for res_nums, _ in parsed[1:]:
+        common &= set(res_nums)
+    common = np.array(sorted(common), dtype=int)
+    stacked = np.stack(
+        [scores[np.isin(res_nums, common)] for res_nums, scores in parsed]
+    )
+    return common, stacked.mean(axis=0)
+
+
+def inject_bfactor(
+    pdb_text: str,
+    res_nums: np.ndarray,
+    scores: np.ndarray,
+    low_pct: float = 5.0,
+    high_pct: float = 95.0,
+) -> str:
+    """
+    Rewrite the B-factor column using percentile-based normalisation so that
+    colour variation isn't dominated by a small number of outlier residues.
+    Scores are clipped to [low_pct, high_pct] percentile then scaled to 0–100.
+    """
+    lo = np.percentile(scores, low_pct)
+    hi = np.percentile(scores, high_pct)
+    norm = np.clip((scores - lo) / (hi - lo + 1e-9), 0.0, 1.0) * 100
+    score_map = dict(zip(res_nums.tolist(), norm.tolist()))
 
     lines = []
     for line in pdb_text.splitlines():
         if line.startswith(("ATOM", "HETATM")):
             try:
                 rn = int(line[22:26].strip())
-                idx = res_to_idx.get(rn, -1)
-                bf = norm_scores[idx] * 100 if 0 <= idx < len(norm_scores) else 0.0
+                bf = score_map.get(rn, 0.0)
                 line = line[:60] + f"{bf:6.2f}" + line[66:]
             except (ValueError, IndexError):
                 pass
