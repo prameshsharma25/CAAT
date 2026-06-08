@@ -52,12 +52,8 @@ jobs:
           pytest-coverage-path: ./pytest-coverage.txt
           title: "Analysis Pipeline Coverage Report"
       
-      - name: Import Codecov GPG key
-        run: |
-          curl -fsSL https://cli.codecov.io/gpg/pgp_keys.asc | gpg --import
-
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           fail_ci_if_error: true
