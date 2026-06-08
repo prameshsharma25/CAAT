@@ -39,6 +39,8 @@ jobs:
           poetry run pip install --no-warn-conflicts 'jax[cuda12]==0.4.28' jaxlib==0.4.28
 
       - name: Run tests with coverage
+        env:
+          JAX_PLATFORMS: cpu
         run: |
           # PYTHONPATH=. ensures pytest maps coverage to your local source code
           # instead of the copy inside the .venv folder.
@@ -49,6 +51,11 @@ jobs:
         with:
           pytest-coverage-path: ./pytest-coverage.txt
           title: "Analysis Pipeline Coverage Report"
+      
+      - name: Import Codecov GPG key
+        run: |
+          gpg --keyserver keys.openpgp.org \
+            --recv-keys 27034E7FDB850E0BBC2C62FF806BB28AED779869
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
