@@ -54,8 +54,7 @@ jobs:
       
       - name: Import Codecov GPG key
         run: |
-          gpg --keyserver keys.openpgp.org \
-            --recv-keys 27034E7FDB850E0BBC2C62FF806BB28AED779869
+          curl -fsSL https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --import
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
