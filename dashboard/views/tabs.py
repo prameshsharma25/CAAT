@@ -239,6 +239,106 @@ def render_diff(s: AppState) -> None:
     st.plotly_chart(fig2, use_container_width=True)
 
 
+def render_diff_csv(s: AppState) -> None:
+    st.subheader("Difference CSV Plot")
+    st.caption(
+        "Plot per-residue attention-difference CSVs saved from the analysis pipeline."
+    )
+
+    if not s.csv_files:
+        st.info("Set a Visualizations folder containing CSV files in the sidebar.")
+        return
+
+    chosen_csv = st.selectbox(
+        "Difference CSV",
+        s.csv_files,
+        format_func=lambda f: f.name,
+        key="diff_csv_sel",
+    )
+
+    df = loader.csv(chosen_csv)
+    required_cols = {"Residue number", "Attention difference"}
+    if not required_cols.issubset(df.columns):
+        st.warning(
+            "Selected CSV is not a valid attention-difference file. "
+            "It must contain at least 'Residue number' and 'Attention difference' columns."
+        )
+        return
+
+    residue_numbers = df["Residue number"].astype(int).to_numpy()
+    amino_acids = []
+    if "Amino acid" in df.columns:
+        amino_acids = df["Amino acid"].fillna("").astype(str).tolist()
+    else:
+        amino_acids = ["" for _ in residue_numbers]
+
+    labels = [
+        f"{aa}{rn}" if aa else str(rn)
+        for rn, aa in zip(residue_numbers, amino_acids)
+    ]
+
+    raw_diff = df["Attention difference"].astype(float).to_numpy()
+    negative_only = (
+        df["Attention difference negative-only"].astype(float).to_numpy()
+        if "Attention difference negative-only" in df.columns
+        else np.clip(raw_diff, None, 0)
+    )
+
+    col_bar, col_line = st.columns(2)
+    with col_bar:
+        fig = go.Figure(
+            go.Bar(
+                x=labels,
+                y=negative_only,
+                marker_color=["crimson" if v < 0 else "lightgray" for v in negative_only],
+                hovertemplate="<b>%{x}</b><br>Δ: %{y:.5f}<extra></extra>",
+            )
+        )
+        fig.update_layout(
+            title="Attention Difference (negative-only)",
+            xaxis_title="Residue",
+            yaxis_title="Δ Attention",
+            height=420,
+            margin=dict(t=40, b=60),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_line:
+        fig2 = go.Figure(
+            go.Scatter(
+                x=labels,
+                y=raw_diff,
+                mode="lines+markers",
+                line=dict(color="#1f77b4"),
+                hovertemplate="<b>%{x}</b><br>Δ: %{y:.5f}<extra></extra>",
+            )
+        )
+        fig2.add_hline(y=0, line_dash="dash", line_color="gray")
+        fig2.update_layout(
+            title="Raw Attention Difference",
+            xaxis_title="Residue",
+            yaxis_title="Δ Attention",
+            height=420,
+            margin=dict(t=40, b=60),
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+    table_cols = ["Residue number", "Amino acid", "Attention difference"]
+    if "Attention difference negative-only" in df.columns:
+        table_cols.append("Attention difference negative-only")
+
+    top_n = int(min(s.top_n, len(df)))
+    top_df = (
+        df.assign(**{"Attention difference negative-only": negative_only})
+        .sort_values("Attention difference negative-only")
+        .head(top_n)
+        .reset_index(drop=True)
+    )
+
+    st.subheader(f"Top-{top_n} Decreasing Residues")
+    st.dataframe(top_df[table_cols], use_container_width=True)
+
+
 def render_3d(s: AppState) -> None:
     st.subheader("3D Structure — Residues Colored by Attention Score")
 
@@ -266,17 +366,26 @@ def render_3d(s: AppState) -> None:
         )
         return
 
+    rank_csv_files = [
+        f for f in s.csv_files if f.name.endswith("_residue_ranking.csv")
+    ]
+    if not rank_csv_files:
+        st.info(
+            "No residue-ranking CSVs found. Add `*_residue_ranking.csv` files to the Visualizations folder."
+        )
+        return
+
     filter_csv = st.toggle("Filter CSVs to average", value=False, key="3d_csv_filter")
     selected_csv = (
         st.multiselect(
             "Select CSVs to average",
-            options=s.csv_files,
-            default=s.csv_files,
+            options=rank_csv_files,
+            default=rank_csv_files,
             format_func=lambda f: f.name,
             key="3d_csv_sel",
         )
         if filter_csv
-        else s.csv_files
+        else rank_csv_files
     )
 
     if not selected_csv:

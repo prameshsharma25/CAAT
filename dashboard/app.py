@@ -3,7 +3,7 @@ from config import APP_TITLE
 from state import AppState
 from views.sidebar import render as render_sidebar
 from views.tabs import render as render_mean
-from views.tabs import render_3d, render_diff, render_heads
+from views.tabs import render_3d, render_diff, render_heads, render_diff_csv
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -14,11 +14,12 @@ st.set_page_config(
 s = AppState.load()
 render_sidebar(s)
 
-tab_mean, tab_heads, tab_diff, tab_3d = st.tabs(
+tab_mean, tab_heads, tab_diff, tab_diff_csv, tab_3d = st.tabs(
     [
         "📊 Mean Scores",
         "🔬 Head Explorer",
         "↔️ Difference Maps",
+        "📈 Difference CSV",
         "🧱 3D Structure",
     ]
 )
@@ -29,5 +30,7 @@ with tab_heads:
     render_heads(s)
 with tab_diff:
     render_diff(s)
+with tab_diff_csv:
+    render_diff_csv(s)
 with tab_3d:
     render_3d(s)

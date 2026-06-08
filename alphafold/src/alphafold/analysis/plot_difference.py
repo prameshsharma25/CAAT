@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from pathlib import Path
@@ -107,6 +108,31 @@ def compute_bar_colors(
     return colors
 
 
+def save_difference_csv(
+    output_dir: Path,
+    protein_name: str,
+    residue_indices: np.ndarray,
+    attn_diff_scores: np.ndarray,
+    negative_attention_diff_scores: np.ndarray,
+    sequence: Optional[str] = None,
+) -> None:
+    """Save per-residue attention difference scores to CSV."""
+    csv_path = output_dir / f"{protein_name}_attention_difference.csv"
+    amino_acids = [
+        sequence[i - 1] if sequence and 1 <= i <= len(sequence) else ""
+        for i in residue_indices
+    ]
+    df = pd.DataFrame(
+        {
+            "Residue number": residue_indices,
+            "Amino acid": amino_acids,
+            "Attention difference": attn_diff_scores,
+            "Attention difference negative-only": negative_attention_diff_scores,
+        }
+    )
+    df.to_csv(csv_path, index=False)
+
+
 def plot_attention(
     attention_scores: np.ndarray,
     highlighted_scores: np.ndarray,
@@ -201,6 +227,17 @@ def plot_difference(
     logger.info("Residue indices: %s", residue_indices)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
+
+    save_difference_csv(
+        output_dir=output_path,
+        protein_name=protein_name,
+        residue_indices=residue_indices,
+        attn_diff_scores=np.asarray(attn_diff_scores),
+        negative_attention_diff_scores=np.asarray(
+            negative_attention_diff_scores
+        ),
+        sequence=sequence,
+    )
 
     fig, ax = plt.subplots(figsize=(8, 6))
 

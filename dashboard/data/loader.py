@@ -28,7 +28,7 @@ def discover_viz(viz_dir: str) -> dict[str, list[Path]]:
     if not p.is_dir():
         return {"csv": [], "pdb": []}
     return {
-        "csv": sorted(p.glob("*_residue_ranking.csv")),
+        "csv": sorted(p.glob("*.csv")),
         "pdb": sorted(p.glob("*.pdb")),
     }
 
