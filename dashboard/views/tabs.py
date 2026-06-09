@@ -30,6 +30,16 @@ except ImportError:
     HAS_3D = False
 
 
+def _xaxis_tick_config(indices: np.ndarray, labels: list[str], max_ticks: int = 20) -> dict:
+    n = len(indices)
+    if n <= max_ticks:
+        return dict(tickmode="array", tickvals=indices.tolist(), ticktext=labels)
+    step = max(1, int(np.ceil(n / max_ticks)))
+    tickvals = indices[::step].tolist()
+    ticktext = [labels[i] for i in range(0, n, step)]
+    return dict(tickmode="array", tickvals=tickvals, ticktext=ticktext)
+
+
 def render(s: AppState) -> None:
     st.subheader("Per-Residue Mean Attention Score")
     st.caption(
@@ -56,6 +66,8 @@ def render(s: AppState) -> None:
     n = len(scores)
     labels = residue_labels(s.sequence, n)
     cutoff = float(np.percentile(scores, s.threshold_pct))
+    residue_indices = np.arange(1, n + 1)
+    xaxis_config = _xaxis_tick_config(residue_indices, labels)
 
     col_bar, col_line = st.columns(2)
 
@@ -63,27 +75,32 @@ def render(s: AppState) -> None:
         colors = ["crimson" if v >= cutoff else "steelblue" for v in scores]
         fig = go.Figure(
             go.Bar(
-                x=labels,
+                x=residue_indices,
                 y=scores,
+                customdata=labels,
                 marker_color=colors,
-                hovertemplate="<b>%{x}</b><br>Score: %{y:.5f}<extra></extra>",
+                hovertemplate="<b>%{customdata}</b><br>Score: %{y:.5f}<extra></extra>",
             )
         )
         fig.update_layout(
             title=f"Mean Attention  (red ≥ {s.threshold_pct}th percentile)",
             xaxis_title="Residue",
             yaxis_title="Score",
+            xaxis=xaxis_config,
             height=380,
             margin=dict(t=40, b=10),
         )
         st.plotly_chart(fig, use_container_width=True)
 
     with col_line:
-        fig2 = px.line(
-            x=labels,
-            y=scores,
-            labels={"x": "Residue", "y": "Score"},
-            title="Score Profile",
+        fig2 = go.Figure(
+            go.Scatter(
+                x=residue_indices,
+                y=scores,
+                mode="lines+markers",
+                customdata=labels,
+                hovertemplate="<b>%{customdata}</b><br>Score: %{y:.5f}<extra></extra>",
+            )
         )
         fig2.add_hline(
             y=cutoff,
@@ -91,7 +108,15 @@ def render(s: AppState) -> None:
             line_color="red",
             annotation_text=f"{s.threshold_pct}th pct",
         )
-        fig2.update_layout(height=380, margin=dict(t=40, b=10))
+        fig2.update_layout(
+            title="Score Profile",
+            xaxis_title="Residue",
+            yaxis_title="Score",
+            xaxis=xaxis_config,
+            xaxis_rangeslider_visible=True,
+            height=380,
+            margin=dict(t=40, b=10),
+        )
         st.plotly_chart(fig2, use_container_width=True)
 
     st.subheader(f"Top-{s.top_n} Residues")
@@ -205,11 +230,13 @@ def render_diff(s: AppState) -> None:
     N = delta.shape[0]
     labels = residue_labels(s.sequence, N)
     abs_max = float(np.abs(delta).max()) or 1.0
+    residue_indices = np.arange(1, N + 1)
+    xaxis_config = _xaxis_tick_config(residue_indices, labels)
 
     fig = px.imshow(
         delta,
-        x=labels,
-        y=labels,
+        x=residue_indices,
+        y=residue_indices,
         color_continuous_scale=DIVERGING_SCALE,
         zmin=-abs_max,
         zmax=abs_max,
@@ -217,22 +244,26 @@ def render_diff(s: AppState) -> None:
         title=f"Δ Attention  |  {q_file.name}  −  {t_file.name}",
         aspect="auto",
     )
-    fig.update_layout(height=540)
+    fig.update_traces(hovertemplate="Residue %{x} × %{y}<br>Δ %{z:.5f}<extra></extra>")
+    fig.update_layout(height=540, xaxis=xaxis_config, yaxis=xaxis_config)
     st.plotly_chart(fig, use_container_width=True)
 
     proj = delta.mean(axis=1)
     fig2 = go.Figure(
         go.Bar(
-            x=labels,
+            x=residue_indices,
             y=proj,
+            customdata=labels,
             marker_color=["crimson" if v > 0 else "steelblue" for v in proj],
-            hovertemplate="<b>%{x}</b><br>Avg Δ: %{y:.5f}<extra></extra>",
+            hovertemplate="<b>%{customdata}</b><br>Avg Δ: %{y:.5f}<extra></extra>",
         )
     )
     fig2.update_layout(
         title="Row-mean projection  (positive = Query > Target)",
         xaxis_title="Residue",
         yaxis_title="Avg Δ Score",
+        xaxis=xaxis_config,
+        xaxis_rangeslider_visible=True,
         height=320,
         margin=dict(t=40, b=10),
     )
@@ -288,20 +319,23 @@ def render_diff_csv(s: AppState) -> None:
         .sort_values("Residue number")
     )
     full_df["Amino acid"] = full_df["Amino acid"].fillna("").astype(str)
-    full_df["Attention difference"] = full_df["Attention difference"].fillna(0.0).astype(float)
-    full_df["Attention difference negative-only"] = full_df[
-        "Attention difference negative-only"
-    ].fillna(0.0).astype(float)
+    full_df["Attention difference"] = (
+        full_df["Attention difference"].fillna(0.0).astype(float)
+    )
+    full_df["Attention difference negative-only"] = (
+        full_df["Attention difference negative-only"].fillna(0.0).astype(float)
+    )
 
     residue_numbers = full_df["Residue number"].to_numpy()
     amino_acids = full_df["Amino acid"].tolist()
     labels = [
-        f"{aa}{rn}" if aa else str(rn)
-        for rn, aa in zip(residue_numbers, amino_acids)
+        f"{aa}{rn}" if aa else str(rn) for rn, aa in zip(residue_numbers, amino_acids)
     ]
 
     raw_diff = full_df["Attention difference"].to_numpy()
     negative_only = full_df["Attention difference negative-only"].to_numpy()
+    residue_indices = full_df["Residue number"].to_numpy()
+    xaxis_config = _xaxis_tick_config(residue_indices, labels)
 
     plot_mode = st.radio(
         "Plot mode",
@@ -311,25 +345,32 @@ def render_diff_csv(s: AppState) -> None:
     )
     show_all_residues = plot_mode == "All residues"
     y_values = raw_diff if show_all_residues else negative_only
-    bar_title = "Attention Difference (all residues)" if show_all_residues else "Attention Difference (negative-only)"
+    bar_title = (
+        "Attention Difference (all residues)"
+        if show_all_residues
+        else "Attention Difference (negative-only)"
+    )
 
     col_bar, col_line = st.columns(2)
     with col_bar:
         fig = go.Figure(
             go.Bar(
-                x=labels,
+                x=residue_indices,
                 y=y_values,
+                customdata=labels,
                 marker_color=[
                     "crimson" if v > 0 else "royalblue" if v < 0 else "lightgray"
                     for v in y_values
                 ],
-                hovertemplate="<b>%{x}</b><br>Δ: %{y:.5f}<extra></extra>",
+                hovertemplate="<b>%{customdata}</b><br>Δ: %{y:.5f}<extra></extra>",
             )
         )
         fig.update_layout(
             title=bar_title,
             xaxis_title="Residue",
             yaxis_title="Δ Attention",
+            xaxis=xaxis_config,
+            xaxis_rangeslider_visible=True,
             height=420,
             margin=dict(t=40, b=60),
         )
@@ -338,11 +379,12 @@ def render_diff_csv(s: AppState) -> None:
     with col_line:
         fig2 = go.Figure(
             go.Scatter(
-                x=labels,
+                x=residue_indices,
                 y=raw_diff,
                 mode="lines+markers",
+                customdata=labels,
                 line=dict(color="#1f77b4"),
-                hovertemplate="<b>%{x}</b><br>Δ: %{y:.5f}<extra></extra>",
+                hovertemplate="<b>%{customdata}</b><br>Δ: %{y:.5f}<extra></extra>",
             )
         )
         fig2.add_hline(y=0, line_dash="dash", line_color="gray")
@@ -350,6 +392,8 @@ def render_diff_csv(s: AppState) -> None:
             title="Raw Attention Difference",
             xaxis_title="Residue",
             yaxis_title="Δ Attention",
+            xaxis=xaxis_config,
+            xaxis_rangeslider_visible=True,
             height=420,
             margin=dict(t=40, b=60),
         )
@@ -398,9 +442,7 @@ def render_3d(s: AppState) -> None:
         )
         return
 
-    rank_csv_files = [
-        f for f in s.csv_files if f.name.endswith("_residue_ranking.csv")
-    ]
+    rank_csv_files = [f for f in s.csv_files if f.name.endswith("_residue_ranking.csv")]
     if not rank_csv_files:
         st.info(
             "No residue-ranking CSVs found. Add `*_residue_ranking.csv` files to the Visualizations folder."
