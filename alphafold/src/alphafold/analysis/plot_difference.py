@@ -273,23 +273,26 @@ def plot_difference(
 
     ax.bar(residue_indices, negative_attention_diff_scores, color=bar_colors)
 
-    if sequence:
-        tick_step = choose_tick_step(residue_indices.size, max_ticks=20)
-        tick_positions = residue_indices[::tick_step]
-        if tick_positions[-1] != residue_indices[-1]:
-            tick_positions = np.append(tick_positions, residue_indices[-1])
-        ax.set_xticks(tick_positions)
-        ax.set_xticklabels(
-            create_custom_xticks_top(tick_positions, sequence, interval=tick_step),
-            rotation=45,
-            ha="left",
-        )
+    if residue_indices.size > 0:
+        if sequence:
+            tick_step = choose_tick_step(residue_indices.size, max_ticks=20)
+            tick_positions = residue_indices[::tick_step]
+            if tick_positions.size == 0 or tick_positions[-1] != residue_indices[-1]:
+                tick_positions = np.append(tick_positions, residue_indices[-1])
+            ax.set_xticks(tick_positions)
+            ax.set_xticklabels(
+                create_custom_xticks_top(tick_positions, sequence, interval=tick_step),
+                rotation=45,
+                ha="left",
+            )
+        else:
+            tick_step = choose_tick_step(residue_indices.size, max_ticks=30)
+            tick_positions = residue_indices[::tick_step]
+            if tick_positions.size == 0 or tick_positions[-1] != residue_indices[-1]:
+                tick_positions = np.append(tick_positions, residue_indices[-1])
+            ax.set_xticks(tick_positions)
     else:
-        tick_step = choose_tick_step(residue_indices.size, max_ticks=30)
-        tick_positions = residue_indices[::tick_step]
-        if tick_positions[-1] != residue_indices[-1]:
-            tick_positions = np.append(tick_positions, residue_indices[-1])
-        ax.set_xticks(tick_positions)
+        ax.set_xticks([])
 
     ax.set_ylabel("Attention Difference")
     ax.set_title(f"Attention Difference: {protein_name}")
