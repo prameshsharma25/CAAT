@@ -265,37 +265,69 @@ def render_diff_csv(s: AppState) -> None:
         )
         return
 
-    residue_numbers = df["Residue number"].astype(int).to_numpy()
-    amino_acids = []
-    if "Amino acid" in df.columns:
-        amino_acids = df["Amino acid"].fillna("").astype(str).tolist()
-    else:
-        amino_acids = ["" for _ in residue_numbers]
+    residue_numbers = df["Residue number"].astype(int)
+    full_residue_numbers = np.arange(residue_numbers.min(), residue_numbers.max() + 1)
 
+    if "Amino acid" not in df.columns:
+        df["Amino acid"] = ""
+    df["Amino acid"] = df["Amino acid"].fillna("").astype(str)
+    df["Attention difference"] = df["Attention difference"].astype(float)
+
+    if "Attention difference negative-only" in df.columns:
+        df["Attention difference negative-only"] = df[
+            "Attention difference negative-only"
+        ].astype(float)
+    else:
+        df["Attention difference negative-only"] = np.clip(
+            df["Attention difference"].to_numpy(), None, 0
+        )
+
+    full_df = (
+        pd.DataFrame({"Residue number": full_residue_numbers})
+        .merge(df, how="left", on="Residue number")
+        .sort_values("Residue number")
+    )
+    full_df["Amino acid"] = full_df["Amino acid"].fillna("").astype(str)
+    full_df["Attention difference"] = full_df["Attention difference"].fillna(0.0).astype(float)
+    full_df["Attention difference negative-only"] = full_df[
+        "Attention difference negative-only"
+    ].fillna(0.0).astype(float)
+
+    residue_numbers = full_df["Residue number"].to_numpy()
+    amino_acids = full_df["Amino acid"].tolist()
     labels = [
         f"{aa}{rn}" if aa else str(rn)
         for rn, aa in zip(residue_numbers, amino_acids)
     ]
 
-    raw_diff = df["Attention difference"].astype(float).to_numpy()
-    negative_only = (
-        df["Attention difference negative-only"].astype(float).to_numpy()
-        if "Attention difference negative-only" in df.columns
-        else np.clip(raw_diff, None, 0)
+    raw_diff = full_df["Attention difference"].to_numpy()
+    negative_only = full_df["Attention difference negative-only"].to_numpy()
+
+    plot_mode = st.radio(
+        "Plot mode",
+        ["All residues", "Negative-only"],
+        index=0,
+        key="diff_csv_plot_mode",
     )
+    show_all_residues = plot_mode == "All residues"
+    y_values = raw_diff if show_all_residues else negative_only
+    bar_title = "Attention Difference (all residues)" if show_all_residues else "Attention Difference (negative-only)"
 
     col_bar, col_line = st.columns(2)
     with col_bar:
         fig = go.Figure(
             go.Bar(
                 x=labels,
-                y=negative_only,
-                marker_color=["crimson" if v < 0 else "lightgray" for v in negative_only],
+                y=y_values,
+                marker_color=[
+                    "crimson" if v > 0 else "royalblue" if v < 0 else "lightgray"
+                    for v in y_values
+                ],
                 hovertemplate="<b>%{x}</b><br>Δ: %{y:.5f}<extra></extra>",
             )
         )
         fig.update_layout(
-            title="Attention Difference (negative-only)",
+            title=bar_title,
             xaxis_title="Residue",
             yaxis_title="Δ Attention",
             height=420,
