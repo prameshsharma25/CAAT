@@ -72,6 +72,11 @@ def create_custom_xticks_bottom(residue_indices, sequence, label_interval=5):
     return labels
 
 
+def choose_tick_step(length: int, max_ticks: int = 20) -> int:
+    """Return the tick step needed to keep x-axis labels readable for long sequences."""
+    return max(1, int(np.ceil(length / max_ticks)))
+
+
 def compute_bar_colors(
     residue_indices: np.ndarray,
     query_highlight_positions: Optional[List[int]] = None,
@@ -166,7 +171,8 @@ def plot_attention(
         residue_indices,
     )
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    width = min(24, max(8, residue_indices.size * 0.06))
+    fig, ax = plt.subplots(figsize=(width, 6))
     ax.bar(residue_indices, attention_scores, color=bar_colors, zorder=1, alpha=0.8)
 
     if highlighted_scores is not None:
@@ -175,8 +181,16 @@ def plot_attention(
         )
 
     if sequence:
-        ax.set_xticks(residue_indices)
-        ax.set_xticklabels(create_custom_xticks_bottom(residue_indices, sequence))
+        tick_step = choose_tick_step(residue_indices.size, max_ticks=20)
+        tick_positions = residue_indices[::tick_step]
+        if tick_positions[-1] != residue_indices[-1]:
+            tick_positions = np.append(tick_positions, residue_indices[-1])
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(
+            create_custom_xticks_bottom(tick_positions, sequence, label_interval=tick_step),
+            rotation=45,
+            ha="right",
+        )
 
     ax.set_xlabel("Amino Acid Residue")
     ax.set_ylabel("Average Attention Score")
@@ -239,7 +253,8 @@ def plot_difference(
         sequence=sequence,
     )
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    width = min(24, max(8, residue_indices.size * 0.06))
+    fig, ax = plt.subplots(figsize=(width, 6))
 
     ax.xaxis.set_ticks_position("top")
     ax.xaxis.set_label_position("top")
@@ -259,10 +274,22 @@ def plot_difference(
     ax.bar(residue_indices, negative_attention_diff_scores, color=bar_colors)
 
     if sequence:
-        ax.set_xticks(residue_indices)
-        ax.set_xticklabels(create_custom_xticks_top(residue_indices, sequence))
+        tick_step = choose_tick_step(residue_indices.size, max_ticks=20)
+        tick_positions = residue_indices[::tick_step]
+        if tick_positions[-1] != residue_indices[-1]:
+            tick_positions = np.append(tick_positions, residue_indices[-1])
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(
+            create_custom_xticks_top(tick_positions, sequence, interval=tick_step),
+            rotation=45,
+            ha="left",
+        )
     else:
-        ax.set_xticks(residue_indices)
+        tick_step = choose_tick_step(residue_indices.size, max_ticks=30)
+        tick_positions = residue_indices[::tick_step]
+        if tick_positions[-1] != residue_indices[-1]:
+            tick_positions = np.append(tick_positions, residue_indices[-1])
+        ax.set_xticks(tick_positions)
 
     ax.set_ylabel("Attention Difference")
     ax.set_title(f"Attention Difference: {protein_name}")
