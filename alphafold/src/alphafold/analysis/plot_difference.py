@@ -72,11 +72,6 @@ def create_custom_xticks_bottom(residue_indices, sequence, label_interval=5):
     return labels
 
 
-def choose_tick_step(length: int, max_ticks: int = 20) -> int:
-    """Return the tick step needed to keep x-axis labels readable for long sequences."""
-    return max(1, int(np.ceil(length / max_ticks)))
-
-
 def compute_bar_colors(
     residue_indices: np.ndarray,
     query_highlight_positions: Optional[List[int]] = None,
@@ -181,15 +176,9 @@ def plot_attention(
         )
 
     if sequence:
-        tick_step = choose_tick_step(residue_indices.size, max_ticks=20)
-        tick_positions = residue_indices[::tick_step]
-        if tick_positions[-1] != residue_indices[-1]:
-            tick_positions = np.append(tick_positions, residue_indices[-1])
-        ax.set_xticks(tick_positions)
+        ax.set_xticks(residue_indices)
         ax.set_xticklabels(
-            create_custom_xticks_bottom(tick_positions, sequence, label_interval=tick_step),
-            rotation=45,
-            ha="right",
+            create_custom_xticks_bottom(residue_indices, sequence),
         )
 
     ax.set_xlabel("Amino Acid Residue")
@@ -275,22 +264,12 @@ def plot_difference(
 
     if residue_indices.size > 0:
         if sequence:
-            tick_step = choose_tick_step(residue_indices.size, max_ticks=20)
-            tick_positions = residue_indices[::tick_step]
-            if tick_positions.size == 0 or tick_positions[-1] != residue_indices[-1]:
-                tick_positions = np.append(tick_positions, residue_indices[-1])
-            ax.set_xticks(tick_positions)
+            ax.set_xticks(residue_indices)
             ax.set_xticklabels(
-                create_custom_xticks_top(tick_positions, sequence, interval=tick_step),
-                rotation=45,
-                ha="left",
+                create_custom_xticks_top(residue_indices, sequence),
             )
         else:
-            tick_step = choose_tick_step(residue_indices.size, max_ticks=30)
-            tick_positions = residue_indices[::tick_step]
-            if tick_positions.size == 0 or tick_positions[-1] != residue_indices[-1]:
-                tick_positions = np.append(tick_positions, residue_indices[-1])
-            ax.set_xticks(tick_positions)
+            ax.set_xticks(residue_indices)
     else:
         ax.set_xticks([])
 
