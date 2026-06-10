@@ -192,9 +192,9 @@ def plot_attention(
     if residue_indices.size <= 100:
         width = 8.0
     else:
-        width = 14.0 + (residue_indices.size - 100) * 0.25
+        width = 14.0 + (residue_indices.size - 100) * 0.20
 
-    width = min(90.0, width)
+    width = min(50.0, width)
     fig, ax = plt.subplots(figsize=(width, 6))
 
     ax.bar(
@@ -300,9 +300,9 @@ def plot_difference(
     if residue_indices.size <= 100:
         width = 8.0
     else:
-        width = 14.0 + (residue_indices.size - 100) * 0.25
+        width = 14.0 + (residue_indices.size - 100) * 0.20
 
-    width = min(90.0, width)
+    width = min(50.0, width)
     fig, ax = plt.subplots(figsize=(width, 6))
 
     ax.xaxis.set_ticks_position("top")
