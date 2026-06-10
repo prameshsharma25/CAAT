@@ -72,6 +72,21 @@ def create_custom_xticks_bottom(residue_indices, sequence, label_interval=5):
     return labels
 
 
+def _compute_residue_xticks(residue_indices, sequence, max_ticks=100, top=False):
+    """Return scaled x-tick positions and labels for long residue sequences."""
+    n = residue_indices.size
+    step = max(1, int(np.ceil(n / max_ticks)))
+    positions = residue_indices[::step]
+    labels = []
+    for i in positions:
+        aa = sequence[i - 1] if sequence and 1 <= i <= len(sequence) else ""
+        if top:
+            labels.append(f"{i}\n{aa}" if aa else str(i))
+        else:
+            labels.append(f"{aa}\n{i}" if aa else str(i))
+    return positions, labels
+
+
 def compute_bar_colors(
     residue_indices: np.ndarray,
     query_highlight_positions: Optional[List[int]] = None,
@@ -176,16 +191,20 @@ def plot_attention(
         )
 
     if sequence:
-        ax.set_xticks(residue_indices)
-        ax.set_xticklabels(
-            create_custom_xticks_bottom(residue_indices, sequence),
+        tick_positions, tick_labels = _compute_residue_xticks(
+            residue_indices, sequence, max_ticks=100, top=False
         )
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(tick_labels, rotation=45, ha="right")
+    else:
+        ax.set_xticks(residue_indices)
 
     ax.set_xlabel("Amino Acid Residue")
     ax.set_ylabel("Average Attention Score")
     ax.set_title(f"Attention Analysis: {protein_name}")
+    fig.tight_layout()
 
-    fig.savefig(output_path / f"{protein_name}_average_attention.png", dpi=600)
+    fig.savefig(output_path / f"{protein_name}_average_attention.png", dpi=600, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -264,10 +283,11 @@ def plot_difference(
 
     if residue_indices.size > 0:
         if sequence:
-            ax.set_xticks(residue_indices)
-            ax.set_xticklabels(
-                create_custom_xticks_top(residue_indices, sequence),
+            tick_positions, tick_labels = _compute_residue_xticks(
+                residue_indices, sequence, max_ticks=100, top=True
             )
+            ax.set_xticks(tick_positions)
+            ax.set_xticklabels(tick_labels, rotation=0, va="bottom")
         else:
             ax.set_xticks(residue_indices)
     else:
@@ -275,6 +295,7 @@ def plot_difference(
 
     ax.set_ylabel("Attention Difference")
     ax.set_title(f"Attention Difference: {protein_name}")
+    fig.tight_layout()
 
     ax.spines["right"].set_visible(False)
     ax.spines["bottom"].set_visible(False)
