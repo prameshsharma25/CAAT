@@ -192,7 +192,7 @@ def plot_attention(
     if residue_indices.size <= 100:
         width = 8.0
     else:
-        width = 8.0 + (residue_indices.size - 100) * 0.25
+        width = 14.0 + (residue_indices.size - 100) * 0.25
 
     width = min(90.0, width)
     fig, ax = plt.subplots(figsize=(width, 6))
@@ -300,7 +300,7 @@ def plot_difference(
     if residue_indices.size <= 100:
         width = 8.0
     else:
-        width = 8.0 + (residue_indices.size - 100) * 0.25
+        width = 14.0 + (residue_indices.size - 100) * 0.25
 
     width = min(90.0, width)
     fig, ax = plt.subplots(figsize=(width, 6))
