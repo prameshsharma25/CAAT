@@ -15,7 +15,6 @@ from alphafold.analysis import (
     align_sequence,
 )
 
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 

@@ -15,4 +15,4 @@ __pycache__
 /env
 *.a3m
 *.fa
-*_attention_visualization
+*_*_attention_visualizations
