@@ -51,6 +51,7 @@ jobs:
         with:
           pytest-coverage-path: ./pytest-coverage.txt
           title: "Analysis Pipeline Coverage Report"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Upload to Codecov
         uses: codecov/codecov-action@v7
