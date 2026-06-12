@@ -2,6 +2,7 @@ import pytest
 import tempfile
 import shutil
 import numpy as np
+import pandas as pd
 
 from unittest import mock
 from pathlib import Path
@@ -706,6 +707,38 @@ class TestPlotDifference:
 
         output_file = Path(test_output_dir) / f"{protein_name}_attention_difference.png"
         assert output_file.exists(), "Output PNG should be created"
+
+    def test_plot_difference_saves_csv(self, test_output_dir):
+        """Test that the attention difference CSV is saved with residue scores."""
+        attn_diff_scores = np.array([0.1, -0.4, 0.3, -0.8, 0.2])
+        protein_name = "test_diff_csv"
+        sequence = "ACDEF"
+
+        plot_difference.plot_difference(
+            attn_diff_scores=attn_diff_scores,
+            protein_name=protein_name,
+            output_dir=test_output_dir,
+            sequence=sequence,
+        )
+
+        output_csv = Path(test_output_dir) / f"{protein_name}_attention_difference.csv"
+        assert output_csv.exists(), "Output CSV should be created"
+
+        df = pd.read_csv(output_csv)
+        assert list(df.columns) == [
+            "Residue number",
+            "Amino acid",
+            "Attention difference",
+            "Attention difference negative-only",
+        ]
+        assert df["Residue number"].tolist() == [1, 2, 3, 4, 5]
+        assert df["Amino acid"].tolist() == ["A", "C", "D", "E", "F"]
+        assert df["Attention difference"].tolist() == pytest.approx(
+            [0.1, -0.4, 0.3, -0.8, 0.2]
+        )
+        assert df["Attention difference negative-only"].tolist() == pytest.approx(
+            [0.0, -0.4, 0.0, -0.8, 0.0]
+        )
 
     def test_plot_difference_with_highlights(self, test_output_dir):
         """Test plotting with highlight positions."""

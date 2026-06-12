@@ -7,7 +7,6 @@ from Bio.Align import substitution_matrices
 from typing import Tuple
 from pathlib import Path
 
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 

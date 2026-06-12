@@ -11,7 +11,7 @@ poetry run python3 scripts/run_e2e_pipeline.py \
   --query-name XCL1 \
   --target-name Anc0 \
   --target-seq-path examples/XCL1/anc0_seq.fa \
-  --alignment-path examples/XCL1/xcl1_seq.fa
+  --alignment-path examples/XCL1/xcl1.fa
 ```
 
 ### Parameters Explained
