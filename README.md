@@ -122,7 +122,7 @@ This is the primary directory for human-readable insights.
 To view outputs of CAAT in depth, run the streamlit dashboard locally:
 
 ```bash
-    poetry run streamlit run dashboard/app.py
+poetry run streamlit run dashboard/app.py
 ```
 
 
