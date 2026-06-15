@@ -13,6 +13,10 @@ For an in-depth look into CAAT, you can access the docs [here](https://prameshsh
 
 View coverage report [here](https://app.codecov.io/github/prameshsharma25/caat/tree/main).
 
+## Visualization Dashboard
+
+To view outputs of CAAT in depth, view the streamlit dashboard [here](https://ukdzguwwsbobnxftmf9rl9.streamlit.app/).
+
 ## Quick Start with Poetry
 
 Follow these steps to set up and run your local version of ColabFold using **Poetry**.
