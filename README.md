@@ -13,10 +13,6 @@ For an in-depth look into CAAT, you can access the docs [here](https://prameshsh
 
 View coverage report [here](https://app.codecov.io/github/prameshsharma25/caat/tree/main).
 
-## Visualization Dashboard
-
-To view outputs of CAAT in depth, view the streamlit dashboard [here](https://ukdzguwwsbobnxftmf9rl9.streamlit.app/).
-
 ## Quick Start with Poetry
 
 Follow these steps to set up and run your local version of ColabFold using **Poetry**.
@@ -120,6 +116,14 @@ This is the primary directory for human-readable insights.
 
 #### **B. Difference Maps** (`*_attention_difference.png`)
 * The residue-by-residue delta between the Query and the Target.
+
+## Visualization Dashboard
+
+To view outputs of CAAT in depth, run the streamlit dashboard locally:
+
+```bash
+    poetry run streamlit run dashboard/app.py
+```
 
 
 ## References
