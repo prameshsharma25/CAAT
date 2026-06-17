@@ -1050,6 +1050,15 @@ class TemplateEmbeddingIteration(hk.Module):
         act,
         pair_mask,
         safe_key=next(sub_keys))
+    
+    result_shape = jax.ShapeDtypeStruct((), jax.numpy.int32)
+    jax.experimental.io_callback(
+      modules.set_is_triangle,
+      result_shape,
+      True,
+      ordered=True
+    )
+
     act = dropout_wrapper_fn(
         modules.TriangleAttention(c.triangle_attention_starting_node, gc,
                                   name='triangle_attention_starting_node'),
@@ -1062,6 +1071,14 @@ class TemplateEmbeddingIteration(hk.Module):
         act,
         pair_mask,
         safe_key=next(sub_keys))
+    
+    jax.experimental.io_callback(
+      modules.set_is_triangle,
+      result_shape,
+      False,
+      ordered=True
+    )
+    
     act = dropout_wrapper_fn(
         modules.Transition(c.pair_transition, gc,
                            name='pair_transition'),

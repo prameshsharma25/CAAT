@@ -357,6 +357,9 @@ def predict_structure(
             # set model number for this run
             modules.set_model_number(model_num + 1)
 
+            # set recycle number to 0 for the first prediction, it will be updated in the callback if recycles are performed
+            modules.set_seed_number(seed)
+
             # swap params to avoid recompiling
             model_runner.params = params
 
@@ -567,7 +570,7 @@ def generate_intermediate_structures_from_representations(
     """Generate structures from saved representations using the model runner directly."""
     import pickle
     from alphafold.common import protein, residue_constants
-    from alphafold.model import folding, common_modules, modules
+    from alphafold.model import folding, folding_multimer, common_modules, modules
     import haiku as hk
     import jax
     import jax.numpy as jnp
@@ -607,12 +610,19 @@ def generate_intermediate_structures_from_representations(
         }
         
         # Run structure module
-        sm = folding.StructureModule(
-            config.heads.structure_module,
-            config.global_config,
-            compute_loss=False,
-            name='structure_module'
-        )
+        if "multimer" in model_type:
+            sm = folding_multimer.StructureModule(
+                config.heads.structure_module,
+                config.global_config,
+                name='structure_module'
+            )
+        else:
+            sm = folding.StructureModule(
+                config.heads.structure_module,
+                config.global_config,
+                compute_loss=False,
+                name='structure_module'
+            )
         structure_output = sm(representations_dict, batch_dict, is_training=False)
         
         # Run pLDDT head on structure module output
@@ -703,6 +713,10 @@ def generate_intermediate_structures_from_representations(
                     'residue_index': residue_index,
                     'seq_mask': np.ones(num_res, dtype=np.float32),
                 }
+
+                for k in ['asym_id', 'entity_id', 'sym_id']:
+                    if k in data['batch']:
+                        batch[k] = data['batch'][k]
                 
                 # Add atom features
                 atom14_atom_exists = []

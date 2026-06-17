@@ -39,6 +39,7 @@ attention_dir = None
 attention_file = None
 _recycle_number = None
 _model_number = None
+_seed_number = None
 _save_attention_compressed = False
 evoformer_loop_counter = -1
 is_triangle = None
@@ -149,6 +150,16 @@ def set_model_number(model_number: int):
   global _model_number
   _model_number = model_number
 
+def set_seed_number(seed_number: int):
+  """Set the global seed number for this run."""
+  global _seed_number
+  _seed_number = seed_number
+
+def get_seed_number() -> int:
+  """Get the global seed number for this run."""
+  global _seed_number
+  return _seed_number
+
 def increase_evoformer_loop_counter():
   """Increase the global evoformer loop counter for this run."""
   global evoformer_loop_counter
@@ -199,6 +210,8 @@ def write_array_to_file(logits: np.ndarray, filename_prefix: str = "attention_he
   
   model_number = get_model_number()
   recycle_number = get_recycle_number()
+  seed_number = get_seed_number()
+  if seed_number is None: seed_number = 0
 
   if evoformer_loop_counter % 52 < 4:
     loop_type = "extra_msa"
@@ -207,7 +220,7 @@ def write_array_to_file(logits: np.ndarray, filename_prefix: str = "attention_he
     loop_type = "main"
     loop_num = (evoformer_loop_counter % 52) - 3
 
-  file_name = f"model_{model_number}_recycle_{recycle_number}_{loop_type}_evoformer_loop_{loop_num}_global_index_{attention_head_counter}.npy"
+  file_name = f"seed_{seed_number:03d}_model_{model_number}_recycle_{recycle_number}_{loop_type}_evoformer_loop_{loop_num}_global_index_{attention_head_counter}.npy"
 
   os.makedirs(attention_dir, exist_ok=True)
   npy_path = os.path.join(attention_dir, file_name)
@@ -220,7 +233,7 @@ def write_array_to_file(logits: np.ndarray, filename_prefix: str = "attention_he
       initialize_hdf5_file(attention_dir)
     
     if is_triangle:
-      dataset_name = f"{loop_type}_evoformer_loop_{loop_num}/head_{attention_head_counter}"
+      dataset_name = f"seed_{seed_number:03d}_{loop_type}_evoformer_loop_{loop_num}/head_{attention_head_counter}"
       
       ds = attention_file.create_dataset(
         dataset_name,
@@ -234,6 +247,7 @@ def write_array_to_file(logits: np.ndarray, filename_prefix: str = "attention_he
       ds.attrs['global_index'] = attention_head_counter
       ds.attrs['model_number'] = model_number
       ds.attrs['recycle_number'] = recycle_number
+      ds.attrs['seed_number'] = seed_number
       ds.attrs['loop_type'] = loop_type
       ds.attrs['loop_number'] = loop_num
       ds.attrs['is_triangle'] = True
@@ -300,12 +314,17 @@ def save_intermediate_representations(msa_act_first_row, pair_act, batch, loop_i
       'residue_index': squeeze_to_numpy(batch.get('residue_index', 
                                                    np.arange(len(batch['aatype'])))),
   }
+
+  for k in ['asym_id', 'entity_id', 'sym_id']:
+    if k in batch:
+      batch_info[k] = squeeze_to_numpy(batch[k])
   
   # Construct filename
   model_num = get_model_number() if get_model_number() is not None else 0
   recycle_num = get_recycle_number() if get_recycle_number() is not None else 0
+  seed_num = get_seed_number() if get_seed_number() is not None else 0
   
-  filename = f"model_{model_num}_recycle_{recycle_num}_{loop_type}_loop_{loop_num}_representations.pkl"
+  filename = f"seed_{seed_num:03d}_model_{model_num}_recycle_{recycle_num}_{loop_type}_loop_{loop_num}_representations.pkl"
   
   # Create output directory
   os.makedirs(intermediate_structures_dir, exist_ok=True)
@@ -322,6 +341,7 @@ def save_intermediate_representations(msa_act_first_row, pair_act, batch, loop_i
       'loop_num': loop_num,
       'model_num': model_num,
       'recycle_num': recycle_num,
+      'seed_num': seed_num,
   }
   
   # Only save main evoformer loop
@@ -2019,7 +2039,13 @@ class EvoformerIteration(hk.Module):
     )
     global evoformer_loop_counter
 
-    c = self.config.embeddings_and_evoformer.evoformer
+    if 'embeddings_and_evoformer' in self.config:
+        # Monomer passes the full model config
+        c = self.config.embeddings_and_evoformer.evoformer
+    else:
+        # Multimer natively passes just the evoformer config
+        c = self.config
+        
     gc = self.global_config
 
     msa_act, pair_act = activations['msa'], activations['pair']
