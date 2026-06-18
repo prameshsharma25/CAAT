@@ -44,6 +44,7 @@ _save_attention_compressed = False
 evoformer_loop_counter = -1
 is_triangle = None
 intermediate_structures_dir = None
+distogram_output_dir = None
 
 def softmax_cross_entropy(logits, labels):
   """Computes softmax cross entropy given logits and one-hot class labels."""
@@ -208,6 +209,9 @@ def write_array_to_file(logits: np.ndarray, filename_prefix: str = "attention_he
   """Write attention logits to file in .npy and optionally HDF5 format."""
   global attention_file, attention_head_counter, evoformer_loop_counter, is_triangle
   
+  if evoformer_loop_counter == -1:
+      return 0
+      
   model_number = get_model_number()
   recycle_number = get_recycle_number()
   seed_number = get_seed_number()
@@ -2260,7 +2264,7 @@ class EmbeddingsAndEvoformer(hk.Module):
         # Add one-hot-encoded clipped residue distances to the pair activations.
         pos = batch['residue_index']
         offset = pos[:,None] - pos[None,:]
-        offset = jnp.clip(offset + c.max_relative_feature, a_min=0, a_max=2 * c.max_relative_feature)
+        offset = jnp.clip(offset + c.max_relative_feature, 0, 2 * c.max_relative_feature)
         if "asym_id" in batch:
           o = batch['asym_id'][:,None] - batch['asym_id'][None,:]
           offset = jnp.where(o == 0, offset, jnp.where(o > 0, 2*c.max_relative_feature, 0))

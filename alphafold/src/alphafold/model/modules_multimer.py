@@ -683,7 +683,8 @@ class EmbeddingsAndEvoformer(hk.Module):
             activations=act,
             masks=extra_masks,
             is_training=is_training,
-            safe_key=safe_subkey)
+            safe_key=safe_subkey,
+            batch=batch)
         return (extra_evoformer_output, safe_key)
 
       if gc.use_remat:
@@ -728,7 +729,8 @@ class EmbeddingsAndEvoformer(hk.Module):
             activations=act,
             masks=evoformer_masks,
             is_training=is_training,
-            safe_key=safe_subkey)
+            safe_key=safe_subkey,
+            batch=batch)
         return (evoformer_output, safe_key)
 
       if gc.use_remat:

@@ -15,3 +15,6 @@ __pycache__
 /env
 *.a3m
 *.fa
+distogram_visuatlization.py
+xcl1*
+anc0*
