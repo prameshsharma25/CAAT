@@ -49,6 +49,12 @@ def main() -> None:
         type=str,
         help="Directory to save intermediate structures from each evoformer loop.",
     )
+    prediction.add_argument(
+        "--distogram-output-dir",
+        type=str,
+        default="distogram_outputs",
+        help="Directory to save distogram .npz files.",
+    )
 
     analysis = parser.add_argument_group("analysis settings")
     analysis.add_argument(
@@ -126,6 +132,12 @@ def main() -> None:
         else None
     )
 
+    query_distogram_output_dir = (
+        f"{args.distogram_output_dir}/{args.query_name}"
+        if args.distogram_output_dir
+        else None
+    )
+
     run(
         queries=query_data,
         result_dir=args.result_dir,
@@ -135,6 +147,7 @@ def main() -> None:
         is_complex=is_complex_query,
         save_attention_compressed=args.save_attention_compressed,
         save_intermediate_structures=query_intermediate_path,
+        distogram_output_dir=query_distogram_output_dir,
     )
 
     logging.getLogger().setLevel(logging.INFO)
@@ -151,8 +164,14 @@ def main() -> None:
         logger.info("Generating Target Attention: %s", args.target_name)
 
         target_intermediate_path = (
-            f"{args.save_intermediate_structures}/{args.query_name}"
+            f"{args.save_intermediate_structures}/{args.target_name}"
             if args.save_intermediate_structures
+            else None
+        )
+
+        target_distogram_output_dir = (
+            f"{args.distogram_output_dir}/{args.target_name}"
+            if args.distogram_output_dir
             else None
         )
 
@@ -165,6 +184,7 @@ def main() -> None:
             is_complex=is_complex_target,
             save_attention_compressed=args.save_attention_compressed,
             save_intermediate_structures=target_intermediate_path,
+            distogram_output_dir=target_distogram_output_dir,
         )
         logging.getLogger().setLevel(logging.INFO)
 
