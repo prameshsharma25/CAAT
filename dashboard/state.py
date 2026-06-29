@@ -19,6 +19,12 @@ class AppState:
     sequence: str = ""
     threshold_pct: int = 90
     top_n: int = 10
+    distogram_name_a: str = ""
+    distogram_folder_a: str = ""
+    distogram_name_b: str = ""
+    distogram_folder_b: str = ""
+    distogram_structure_folder_a: str = ""
+    distogram_structure_folder_b: str = ""
 
     @classmethod
     def load(cls) -> "AppState":
