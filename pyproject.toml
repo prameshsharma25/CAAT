@@ -21,7 +21,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = ">=3.11"
 absl-py = { version = "^1.0.0", optional = true }
-jax = "0.5.3"
+jax = { version = "0.4.28", optional = true }
 matplotlib = "^3.8.4"
 tensorflow-cpu = { version = "^2.16.2", markers = "platform_machine != 'aarch64' and platform_machine != 'arm64'", optional = true }
 tensorflow = { version = "^2.16.2", markers = "platform_machine == 'aarch64' or platform_machine == 'arm64'", optional = true }
@@ -44,11 +44,6 @@ plotly = "^5.18"
 scipy = "^1.16.2"
 ml-collections = "^1.1.0"
 imageio-ffmpeg = "^0.6.0"
-jax-cuda12-plugin = "0.5.3"
-jaxlib = "0.5.3"
-jax-cuda12-pjrt = "0.5.3"
-nvidia-cudnn-cu12 = "^9.23.2.1"
-ipykernel = "^7.3.0"
 [tool.poetry.group.dev.dependencies]
 # The latest version conflicts with tensorflow over typing-extensions
 black = "^23.1.0"
