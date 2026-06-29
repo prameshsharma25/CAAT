@@ -117,6 +117,14 @@ This is the primary directory for human-readable insights.
 #### **B. Difference Maps** (`*_attention_difference.png`)
 * The residue-by-residue delta between the Query and the Target.
 
+## Visualization Dashboard
+
+To view outputs of CAAT in depth, run the streamlit dashboard locally:
+
+```bash
+poetry run streamlit run dashboard/app.py
+```
+
 
 ## References
 

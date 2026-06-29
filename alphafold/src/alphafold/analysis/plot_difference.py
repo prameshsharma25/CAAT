@@ -1,10 +1,10 @@
 import logging
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 from pathlib import Path
 from typing import Optional, List, Union
-
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -71,6 +71,30 @@ def create_custom_xticks_bottom(residue_indices, sequence, label_interval=5):
     return labels
 
 
+def _compute_residue_xticks(residue_indices, sequence, top=False):
+    """Return x-tick positions and labels, showing every residue letter
+    with a numeric index printed every 5 residues.
+
+    Args:
+        residue_indices: 1-based residue index array.
+        sequence: amino-acid sequence string (may be None).
+        top: if True, format as "index\\nAA"; else "AA\\nindex".
+
+    Returns:
+        (positions, labels): arrays for set_xticks / set_xticklabels.
+    """
+    positions = residue_indices
+    labels = []
+    for i in positions:
+        aa = sequence[i - 1] if sequence and 1 <= i <= len(sequence) else ""
+        show_num = i % 5 == 0
+        if top:
+            labels.append(f"{i}\n{aa}" if show_num else f"\n{aa}")
+        else:
+            labels.append(f"{aa}\n{i}" if show_num else f"{aa}\n")
+    return positions, labels
+
+
 def compute_bar_colors(
     residue_indices: np.ndarray,
     query_highlight_positions: Optional[List[int]] = None,
@@ -107,6 +131,31 @@ def compute_bar_colors(
     return colors
 
 
+def save_difference_csv(
+    output_dir: Path,
+    protein_name: str,
+    residue_indices: np.ndarray,
+    attn_diff_scores: np.ndarray,
+    negative_attention_diff_scores: np.ndarray,
+    sequence: Optional[str] = None,
+) -> None:
+    """Save per-residue attention difference scores to CSV."""
+    csv_path = output_dir / f"{protein_name}_attention_difference.csv"
+    amino_acids = [
+        sequence[i - 1] if sequence and 1 <= i <= len(sequence) else ""
+        for i in residue_indices
+    ]
+    df = pd.DataFrame(
+        {
+            "Residue number": residue_indices,
+            "Amino acid": amino_acids,
+            "Attention difference": attn_diff_scores,
+            "Attention difference negative-only": negative_attention_diff_scores,
+        }
+    )
+    df.to_csv(csv_path, index=False)
+
+
 def plot_attention(
     attention_scores: np.ndarray,
     highlighted_scores: np.ndarray,
@@ -140,23 +189,60 @@ def plot_attention(
         residue_indices,
     )
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.bar(residue_indices, attention_scores, color=bar_colors, zorder=1, alpha=0.8)
+    if residue_indices.size <= 100:
+        width = 8.0
+    else:
+        width = 14.0 + (residue_indices.size - 100) * 0.20
+
+    width = min(50.0, width)
+    fig, ax = plt.subplots(figsize=(width, 6))
+
+    ax.bar(
+        residue_indices,
+        attention_scores,
+        color=bar_colors,
+        zorder=1,
+        alpha=0.8,
+    )
 
     if highlighted_scores is not None:
         ax.bar(
-            residue_indices, highlighted_scores, color="#AE0639", zorder=2, alpha=0.6
+            residue_indices,
+            highlighted_scores,
+            color="#AE0639",
+            zorder=2,
+            alpha=0.6,
         )
 
     if sequence:
+        tick_positions, tick_labels = _compute_residue_xticks(
+            residue_indices, sequence, top=False
+        )
+        fontsize = max(5, min(8, 500 // residue_indices.size))
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(
+            tick_labels,
+            rotation=0,
+            ha="center",
+            va="top",
+            fontsize=fontsize,
+            linespacing=1.2,
+        )
+        ax.tick_params(axis="x", pad=5)
+        ax.set_xlim(0.5, residue_indices.size + 0.5)
+    else:
         ax.set_xticks(residue_indices)
-        ax.set_xticklabels(create_custom_xticks_bottom(residue_indices, sequence))
 
     ax.set_xlabel("Amino Acid Residue")
     ax.set_ylabel("Average Attention Score")
     ax.set_title(f"Attention Analysis: {protein_name}")
+    fig.tight_layout()
 
-    fig.savefig(output_path / f"{protein_name}_average_attention.png", dpi=600)
+    fig.savefig(
+        output_path / f"{protein_name}_average_attention.png",
+        dpi=600,
+        bbox_inches="tight",
+    )
     plt.close(fig)
 
 
@@ -202,7 +288,22 @@ def plot_difference(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    save_difference_csv(
+        output_dir=output_path,
+        protein_name=protein_name,
+        residue_indices=residue_indices,
+        attn_diff_scores=np.asarray(attn_diff_scores),
+        negative_attention_diff_scores=np.asarray(negative_attention_diff_scores),
+        sequence=sequence,
+    )
+
+    if residue_indices.size <= 100:
+        width = 8.0
+    else:
+        width = 14.0 + (residue_indices.size - 100) * 0.20
+
+    width = min(50.0, width)
+    fig, ax = plt.subplots(figsize=(width, 6))
 
     ax.xaxis.set_ticks_position("top")
     ax.xaxis.set_label_position("top")
@@ -219,19 +320,40 @@ def plot_difference(
         default_color="gray",
     )
 
-    ax.bar(residue_indices, negative_attention_diff_scores, color=bar_colors)
+    ax.bar(
+        residue_indices,
+        negative_attention_diff_scores,
+        color=bar_colors,
+    )
 
-    if sequence:
-        ax.set_xticks(residue_indices)
-        ax.set_xticklabels(create_custom_xticks_top(residue_indices, sequence))
+    if residue_indices.size > 0:
+        if sequence:
+            tick_positions, tick_labels = _compute_residue_xticks(
+                residue_indices, sequence, top=True
+            )
+            fontsize = max(5, min(8, 500 // residue_indices.size))
+            ax.set_xticks(tick_positions)
+            ax.set_xticklabels(
+                tick_labels,
+                rotation=0,
+                ha="center",
+                va="bottom",
+                fontsize=fontsize,
+                linespacing=1.2,
+            )
+            ax.tick_params(axis="x", pad=5)
+            ax.set_xlim(0.5, residue_indices.size + 0.5)
+        else:
+            ax.set_xticks(residue_indices)
     else:
-        ax.set_xticks(residue_indices)
+        ax.set_xticks([])
 
     ax.set_ylabel("Attention Difference")
     ax.set_title(f"Attention Difference: {protein_name}")
 
     ax.spines["right"].set_visible(False)
     ax.spines["bottom"].set_visible(False)
+    fig.tight_layout()
 
     fig.savefig(output_path / f"{protein_name}_attention_difference.png", dpi=600)
     plt.close(fig)

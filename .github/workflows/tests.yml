@@ -39,6 +39,8 @@ jobs:
           poetry run pip install --no-warn-conflicts 'jax[cuda12]==0.4.28' jaxlib==0.4.28
 
       - name: Run tests with coverage
+        env:
+          JAX_PLATFORMS: cpu
         run: |
           # PYTHONPATH=. ensures pytest maps coverage to your local source code
           # instead of the copy inside the .venv folder.
@@ -49,9 +51,10 @@ jobs:
         with:
           pytest-coverage-path: ./pytest-coverage.txt
           title: "Analysis Pipeline Coverage Report"
-
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           fail_ci_if_error: true
