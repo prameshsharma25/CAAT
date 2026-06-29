@@ -73,7 +73,7 @@ def render(s: AppState) -> None:
 
         st.divider()
 
-        st.subheader("📐 Distogram Viewer  *(optional)*")
+        st.subheader("📐 Distogram Viewer")
         st.caption("Folders for distogram .npz files and PDB structures.")
         _distogram_picker(s)
         st.caption(f"v{APP_VERSION}")

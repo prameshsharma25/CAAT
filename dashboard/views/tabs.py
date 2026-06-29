@@ -490,11 +490,6 @@ def render_3d(s: AppState) -> None:
     )
 
 
-# add at the bottom of tabs.py
-
-# ── distogram helpers ─────────────────────────────────────────────────────────
-
-
 def _disto_build_xs(bin_edges: np.ndarray) -> np.ndarray:
     xs = [(2 + bin_edges[0]) / 2]
     for k in range(len(bin_edges) - 1):
