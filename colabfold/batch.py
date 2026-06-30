@@ -787,6 +787,7 @@ def process_distogram_chunk(files_chunk, reformatted_params, config, distogram_o
 
     # 2. Process all files in this chunk rapidly using the JIT compiled graph
     for repr_file in files_chunk:
+        data = pair_repr_jax = distogram_output = None
         try:
             with open(repr_file, 'rb') as f:
                 data = pickle.load(f)

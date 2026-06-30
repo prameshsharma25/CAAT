@@ -13,7 +13,7 @@ from alphafold.analysis import (
     plot_difference,
     process_attention,
     align_sequence,
-    utils
+    utils,
 )
 
 
