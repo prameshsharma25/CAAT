@@ -45,7 +45,7 @@ jobs:
           # PYTHONPATH=. ensures pytest maps coverage to your local source code
           # instead of the copy inside the .venv folder.
           PYTHONPATH=. poetry run pytest --cov=alphafold.analysis --cov-report=term-missing --cov-report=xml:coverage.xml tests/test_pipeline.py | tee pytest-coverage.txt
-          PYTHONPATH=. poetry run pytest --cov=colabfold.batch --cov-report=term-missing --cov-report=xml:coverage.xml tests/test_batch.py | tee -a pytest-coverage.txt
+          PYTHONPATH=. poetry run pytest --cov=colabfold.batch --cov-report=term-missing --cov-report=xml:coverage.xml tests/test_distogram.py | tee -a pytest-coverage.txt
 
       - name: Post Coverage Comment
         uses: MishaKav/pytest-coverage-comment@main
