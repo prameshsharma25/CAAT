@@ -16,3 +16,4 @@ __pycache__
 *.a3m
 *.fa
 *_*_attention_visualizations
+distogram_output*
