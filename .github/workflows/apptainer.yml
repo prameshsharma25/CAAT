@@ -1,12 +1,15 @@
-name: Build and Push to Sylabs
+name: Build and Push to GHCR
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  sylabs-build:
+  ghcr-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -15,23 +18,32 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y wget uuid-runtime libgpgme11
-          export SY_VER=4.1.1 
+          export SY_VER=4.1.1
           wget https://github.com/sylabs/singularity/releases/download/v${SY_VER}/singularity-ce_${SY_VER}-focal_amd64.deb
           sudo apt-get install -y ./singularity-ce_${SY_VER}-focal_amd64.deb
 
-      - name: Build, Auth, and Push
-        env:
-          SYLABS_TOKEN: ${{ secrets.SYLABS_TOKEN }}
+      - name: Build image
+        run: sudo singularity build caat.sif images/caat.def
+
+      - name: Fix ownership after sudo build
+        run: sudo chown $(whoami) caat.sif
+
+      - name: Set image tag
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
         run: |
-          sudo singularity build caat.sif images/caat.def
+          echo "${{ secrets.GITHUB_TOKEN }}" | singularity remote login \
+            --username "${{ github.actor }}" \
+            --password-stdin \
+            oras://ghcr.io
 
-          singularity remote use SylabsCloud
-          echo "$SYLABS_TOKEN" > .sylabs-token
-          chmod 600 .sylabs-token
-          singularity remote login --tokenfile .sylabs-token SylabsCloud
+      - name: Push to GHCR (SHA tag)
+        run: |
+          singularity push caat.sif oras://ghcr.io/prameshsharma25/caat:${{ steps.vars.outputs.sha_short }}
 
-          IMAGE_PATH="library://prameshsharma25/caat-project/caat:latest"
-          
-          singularity delete --arch amd64 -F $IMAGE_PATH || echo "Nothing to delete"
-          
-          singularity push -U caat.sif $IMAGE_PATH
+      - name: Push to GHCR (latest tag)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          singularity push caat.sif oras://ghcr.io/prameshsharma25/caat:latest
