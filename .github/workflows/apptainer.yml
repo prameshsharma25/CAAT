@@ -34,7 +34,7 @@ jobs:
 
       - name: Login to GHCR
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | singularity remote login \
+          echo "${{ secrets.GITHUB_TOKEN }}" | singularity registry login \
             --username "${{ github.actor }}" \
             --password-stdin \
             oras://ghcr.io
