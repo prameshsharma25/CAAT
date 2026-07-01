@@ -357,6 +357,12 @@ def predict_structure(
             # set model number for this run
             modules.set_model_number(model_num + 1)
 
+            # set recycle number to 0 for the first prediction, it will be updated in the callback if recycles are performed
+            modules.set_seed_number(seed)
+
+            modules.evoformer_loop_counter = -1
+            modules.attention_head_counter = 0
+
             # swap params to avoid recompiling
             model_runner.params = params
 
@@ -558,284 +564,361 @@ def predict_structure(
             "metric":metric,
             "result_files":result_files}
 
+def process_representation_chunk(files_chunk, reformatted_params_main, config, structures_output_path, model_type):
+    """Worker function dedicated ONLY to structure generation."""
+    import pickle
+    import gc
+    import jax
+    import jax.numpy as jnp
+    import numpy as np
+    from pathlib import Path
+    from alphafold.common import protein, residue_constants
+    from alphafold.model import folding, folding_multimer, common_modules, modules
+    import haiku as hk
+
+    try: gpu_device = jax.devices('gpu')[0]
+    except: gpu_device = jax.devices('cpu')[0]
+
+    def structure_fn_main(msa_first_row, pair_repr, batch_dict):
+        seq_channel = config.embeddings_and_evoformer.seq_channel
+        single = common_modules.Linear(seq_channel, name='single_activations')(msa_first_row)
+        representations_dict = {'single': single, 'pair': pair_repr}
+        
+        if "multimer" in model_type:
+            sm = folding_multimer.StructureModule(config.heads.structure_module, config.global_config, name='structure_module')
+        else:
+            sm = folding.StructureModule(config.heads.structure_module, config.global_config, compute_loss=False, name='structure_module')
+            
+        structure_output = sm(representations_dict, batch_dict, is_training=False)
+        plddt_head = modules.PredictedLDDTHead(config.heads.predicted_lddt, config.global_config, name='predicted_lddt_head')
+        plddt_representations = {'structure_module': structure_output['representations']['structure_module']}
+        plddt_output = plddt_head(plddt_representations, batch_dict, is_training=False)
+
+        return structure_output, plddt_output
+
+    jitted_apply = jax.jit(hk.transform(structure_fn_main).apply)
+    results = {'success': 0, 'skipped': 0, 'error': 0}
+
+    for repr_file in files_chunk:
+        try:
+            with open(repr_file, 'rb') as f: data = pickle.load(f)
+            
+            if data.get('loop_type', 'unknown') == 'extra_msa':
+                results['skipped'] += 1
+                continue
+                
+            aatype = data['batch']['aatype']
+            num_res = len(aatype)
+            residue_index = data['batch']['residue_index']
+            
+            batch = {
+                'aatype': aatype,
+                'residue_index': residue_index,
+                'seq_mask': np.ones(num_res, dtype=np.float32),
+            }
+            for k in ['asym_id', 'entity_id', 'sym_id']:
+                if k in data['batch']: batch[k] = data['batch'][k]
+                    
+            atom14_atom_exists, residx_atom14_to_atom37, residx_atom37_to_atom14, atom37_atom_exists = [], [], [], []
+            for aa_idx in aatype:
+                restype_3 = residue_constants.restype_1to3[residue_constants.restypes[aa_idx]] if aa_idx < 20 else 'UNK'
+                atom_names = residue_constants.restype_name_to_atom14_names.get(restype_3, [''] * 14)
+                atom14_atom_exists.append([1.0 if name else 0.0 for name in atom_names])
+                
+                m14_37 = [residue_constants.atom_order[name] if (name and name in residue_constants.atom_order) else 0 for name in atom_names]
+                residx_atom14_to_atom37.append(m14_37)
+                
+                m37_14 = [0] * 37
+                for a14_idx, a37_idx in enumerate(m14_37):
+                    if a37_idx > 0: m37_14[a37_idx] = a14_idx
+                residx_atom37_to_atom14.append(m37_14)
+                atom37_atom_exists.append(residue_constants.restype_atom37_mask[aa_idx] if aa_idx < len(residue_constants.restype_atom37_mask) else [1.0]*4 + [0.0]*33)
+
+            batch['atom14_atom_exists'] = np.array(atom14_atom_exists, dtype=np.float32)
+            batch['residx_atom14_to_atom37'] = np.array(residx_atom14_to_atom37, dtype=np.int32)
+            batch['residx_atom37_to_atom14'] = np.array(residx_atom37_to_atom14, dtype=np.int32)
+            batch['atom37_atom_exists'] = np.array(atom37_atom_exists, dtype=np.float32)
+            
+            batch_jax = {k: jax.device_put(jnp.array(v), gpu_device) for k, v in batch.items()}
+            msa_first_row_jax = jax.device_put(jnp.array(data['msa_first_row'], dtype=np.float32), gpu_device)
+            pair_repr_jax = jax.device_put(jnp.array(data['pair'], dtype=np.float32), gpu_device)
+            
+            rng = jax.random.PRNGKey(42)
+            
+            structure_output, plddt_output = jitted_apply(
+                reformatted_params_main, rng, msa_first_row_jax, pair_repr_jax, batch_jax
+            )
+            
+            plddt_probs = np.array(jax.nn.softmax(plddt_output['logits'], axis=-1))
+            plddt_scores = np.sum(plddt_probs * (np.arange(plddt_probs.shape[-1]) + 0.5) / plddt_probs.shape[-1], axis=-1) * 100.0
+            
+            pdb_protein = protein.Protein(
+                aatype=aatype,
+                atom_positions=np.array(structure_output['final_atom_positions']),
+                atom_mask=np.array(structure_output['final_atom_mask']),
+                residue_index=residue_index + 1,
+                b_factors=plddt_scores[:, np.newaxis] * np.array(structure_output['final_atom_mask']),
+                chain_index=batch.get('asym_id', np.zeros(len(aatype), dtype=np.int32))
+            )
+            
+            pdb_path = structures_output_path / repr_file.name.replace('_representations.pkl', '_structure.pdb')
+            with open(pdb_path, 'w') as f: 
+                f.write(protein.to_pdb(pdb_protein))
+                
+            results['success'] += 1
+            
+        except Exception as e:
+            results['error'] += 1
+        finally:
+            del data, batch, batch_jax, msa_first_row_jax, pair_repr_jax
+            del structure_output, plddt_output
+            gc.collect()
+
+    jax.clear_caches()
+    return results
+
+
 def generate_intermediate_structures_from_representations(
     result_dir: Path,
     jobname: str,
     model_type: str,
     model_runner_and_params,
+    structures_output_path: str,
 ):
-    """Generate structures from saved representations using the model runner directly."""
+    """Parallel structure generation orchestrator reading from the staging folder."""
+    import multiprocessing
+    import time
+    import logging
+    from concurrent.futures import ProcessPoolExecutor
+    from tqdm import tqdm
+    from alphafold.model import modules
+    
+    logger = logging.getLogger(__name__)
+    
+    # We read from the staging directory
+    staging_dir = modules.intermediate_structures_dir
+    if staging_dir is None: return
+    staging_path = Path(staging_dir)
+    if not staging_path.exists(): return
+    
+    repr_files = sorted(staging_path.glob("*_representations.pkl"))
+    if not repr_files: return
+    
+    out_dir = Path(structures_output_path)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    model_name, model_runner, trained_params = model_runner_and_params[0]
+    config = model_runner.config.model
+
+    single_activations_prefix = 'alphafold/alphafold_iteration/evoformer/single_activations'
+    reformatted_params_main = {}
+    for prefix in [single_activations_prefix, 'alphafold/alphafold_iteration/structure_module/', 
+                   'alphafold/alphafold_iteration/predicted_lddt_head/']:
+        flat = {k: v for k, v in trained_params.items() if k.startswith(prefix)}
+        for k, v in flat.items():
+            new_key = 'single_activations' + k.replace(single_activations_prefix, '') if prefix == single_activations_prefix else k.replace('alphafold/alphafold_iteration/', '')
+            reformatted_params_main[new_key] = v
+
+    logger.info(f"Spawning parallel pool tasks across physical cores for {len(repr_files)} tracks...")
+    
+    ctx = multiprocessing.get_context('spawn')
+    max_workers = 4 
+    
+    chunk_size = (len(repr_files) + max_workers - 1) // max_workers
+    chunks = [repr_files[i:i + chunk_size] for i in range(0, len(repr_files), chunk_size)]
+    
+    total_expected = len(repr_files)
+
+    with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as executor:
+        for chunk in chunks:
+            executor.submit(
+                process_representation_chunk, 
+                chunk, reformatted_params_main, config, out_dir, model_type
+            )
+        
+        with tqdm(total=total_expected, unit="file", desc="Generating Structures") as pbar:
+            previous_count = 0
+            while True:
+                current_count = len(list(out_dir.glob("*_structure.pdb")))
+                if current_count > previous_count:
+                    pbar.update(current_count - previous_count)
+                    previous_count = current_count
+                if current_count >= total_expected:
+                    break
+                time.sleep(0.5)
+
+    logger.info(f"✓ Parallel structural generation complete.")
+
+def process_distogram_chunk(files_chunk, reformatted_params, config, distogram_output_dir):
+    """Worker function that compiles the Distogram JAX graph ONCE and processes a chunk of files."""
     import pickle
-    from alphafold.common import protein, residue_constants
-    from alphafold.model import folding, common_modules, modules
-    import haiku as hk
+    import gc
     import jax
     import jax.numpy as jnp
     import numpy as np
-    from tqdm import tqdm
-    
-    structures_dir = modules.intermediate_structures_dir
-    if structures_dir is None:
-        return
-    
-    structures_path = Path(structures_dir)
-    if not structures_path.exists():
-        return
-    
-    repr_files = sorted(structures_path.glob("*_representations.pkl"))
-    if not repr_files:
-        return
-    
-    # Get the model runner
-    model_name, model_runner, trained_params = model_runner_and_params[0]
-    
-    # Get config
-    config = model_runner.config.model
-    seq_channel = config.embeddings_and_evoformer.seq_channel  # 384 (output)
-    
-    # Create structure function for main evoformer loops
-    def structure_fn_main(msa_first_row, pair_repr, batch_dict):
-        """For main evoformer loops (msa_first_row has 256 channels)."""
-        # Project MSA first row to single representation
-        single = common_modules.Linear(
-            seq_channel,
-            name='single_activations')(msa_first_row)
-        
-        representations_dict = {
-            'single': single,
-            'pair': pair_repr
-        }
-        
-        # Run structure module
-        sm = folding.StructureModule(
-            config.heads.structure_module,
+    from pathlib import Path
+    from alphafold.model import modules
+    import haiku as hk
+
+    # Claim the GPU device for this fresh spawned process
+    try:
+        gpu_device = jax.devices('gpu')[0]
+    except:
+        gpu_device = jax.devices('cpu')[0]
+
+    # 1. Define the JAX graph ONCE per worker process
+    def distogram_fn(pair_repr):
+        representations_dict = {'pair': pair_repr}
+        distogram_head = modules.DistogramHead(
+            config.heads.distogram,
             config.global_config,
-            compute_loss=False,
-            name='structure_module'
+            name='distogram_head'
         )
-        structure_output = sm(representations_dict, batch_dict, is_training=False)
+        # Distogram head doesn't use the batch in __call__, so passing None is safe
+        return distogram_head(representations_dict, batch=None, is_training=False)
         
-        # Run pLDDT head on structure module output
-        plddt_head = modules.PredictedLDDTHead(
-            config.heads.predicted_lddt,
-            config.global_config,
-            name='predicted_lddt_head'
-        )
-        
-        # Create representations dict for pLDDT head
-        plddt_representations = {
-            'structure_module': structure_output['representations']['structure_module']
-        }
-        
-        plddt_output = plddt_head(plddt_representations, batch_dict, is_training=False)
-        
-        return structure_output, plddt_output
+    distogram_transform = hk.transform(distogram_fn)
     
-    # Transform it
-    structure_transform_main = hk.transform(structure_fn_main)
-    
-    # Extract parameters for MAIN loops (256 -> 384)
-    single_activations_prefix = 'alphafold/alphafold_iteration/evoformer/single_activations'
-    single_params_main = {
-        k: v for k, v in trained_params.items() 
-        if k.startswith(single_activations_prefix)
-    }
-    
-    # Get structure module parameters
-    structure_module_prefix = 'alphafold/alphafold_iteration/structure_module/'
-    sm_params_flat = {
-        k: v for k, v in trained_params.items() 
-        if k.startswith(structure_module_prefix)
-    }
-    
-    # Get pLDDT head parameters
-    plddt_head_prefix = 'alphafold/alphafold_iteration/predicted_lddt_head/'
-    plddt_params_flat = {
-        k: v for k, v in trained_params.items() 
-        if k.startswith(plddt_head_prefix)
-    }
-    
-    # Reformat parameters for MAIN loops
-    reformatted_params_main = {}
-    for k, v in single_params_main.items():
-        new_key = 'single_activations' + k.replace(single_activations_prefix, '')
-        reformatted_params_main[new_key] = v
-    
-    for k, v in sm_params_flat.items():
-        new_key = k.replace('alphafold/alphafold_iteration/', '')
-        reformatted_params_main[new_key] = v
-    
-    for k, v in plddt_params_flat.items():
-        new_key = k.replace('alphafold/alphafold_iteration/', '')
-        reformatted_params_main[new_key] = v
-    
-    # Counters for summary
-    success_count = 0
-    skipped_count = 0
-    error_count = 0
-    
-    # Process with progress bar
-    with tqdm(total=len(repr_files), unit="file") as pbar:
-        for repr_file in repr_files:
-            try:
-                with open(repr_file, 'rb') as f:
-                    data = pickle.load(f)
-                
-                loop_type = data.get('loop_type', 'unknown')
-                
-                # Skip extra MSA loops since they have different dimensions
-                if loop_type == 'extra_msa':
-                    skipped_count += 1
-                    pbar.set_postfix({
-                        'success': success_count,
-                        'errors': error_count
-                    })
-                    pbar.update(1)
-                    # Delete the pkl file after processing
-                    repr_file.unlink()
-                    continue
-                
-                aatype = data['batch']['aatype']
-                num_res = len(aatype)
-                residue_index = data['batch']['residue_index']
-                
-                # Build batch
-                batch = {
-                    'aatype': aatype,
-                    'residue_index': residue_index,
-                    'seq_mask': np.ones(num_res, dtype=np.float32),
-                }
-                
-                # Add atom features
-                atom14_atom_exists = []
-                residx_atom14_to_atom37 = []
-                residx_atom37_to_atom14 = []
-                atom37_atom_exists = []
-                
-                for aa_idx in aatype:
-                    if aa_idx < 20:
-                        restype_1 = residue_constants.restypes[aa_idx]
-                        restype_3 = residue_constants.restype_1to3[restype_1]
-                    else:
-                        restype_3 = 'UNK'
-                    
-                    atom_names = residue_constants.restype_name_to_atom14_names.get(restype_3, [''] * 14)
-                    exists_14 = [1.0 if name else 0.0 for name in atom_names]
-                    atom14_atom_exists.append(exists_14)
-                    
-                    mapping_14_to_37 = []
-                    for name in atom_names:
-                        if name and name in residue_constants.atom_order:
-                            mapping_14_to_37.append(residue_constants.atom_order[name])
-                        else:
-                            mapping_14_to_37.append(0)
-                    residx_atom14_to_atom37.append(mapping_14_to_37)
-                    
-                    mapping_37_to_14 = [0] * 37
-                    for atom14_idx, atom37_idx in enumerate(mapping_14_to_37):
-                        if atom37_idx > 0:
-                            mapping_37_to_14[atom37_idx] = atom14_idx
-                    residx_atom37_to_atom14.append(mapping_37_to_14)
-                    
-                    if aa_idx < len(residue_constants.restype_atom37_mask):
-                        atom37_atom_exists.append(residue_constants.restype_atom37_mask[aa_idx])
-                    else:
-                        mask_37 = [0.0] * 37
-                        for backbone_atom in ['N', 'CA', 'C', 'O']:
-                            if backbone_atom in residue_constants.atom_order:
-                                idx = residue_constants.atom_order[backbone_atom]
-                                mask_37[idx] = 1.0
-                        atom37_atom_exists.append(mask_37)
-                
-                batch['atom14_atom_exists'] = np.array(atom14_atom_exists, dtype=np.float32)
-                batch['residx_atom14_to_atom37'] = np.array(residx_atom14_to_atom37, dtype=np.int32)
-                batch['residx_atom37_to_atom14'] = np.array(residx_atom37_to_atom14, dtype=np.int32)
-                batch['atom37_atom_exists'] = np.array(atom37_atom_exists, dtype=np.float32)
-                
-                # Get saved representations
-                msa_first_row = np.array(data['msa_first_row'], dtype=np.float32)
-                pair_repr = np.array(data['pair'], dtype=np.float32)
-                
-                # Convert to JAX arrays
-                batch_jax = {k: jnp.array(v) for k, v in batch.items()}
-                msa_first_row_jax = jnp.array(msa_first_row)
-                pair_repr_jax = jnp.array(pair_repr)
-                
-                # Apply structure module and pLDDT head with trained parameters
-                rng = jax.random.PRNGKey(42)
-                
-                structure_output, plddt_output = structure_transform_main.apply(
-                    reformatted_params_main,
-                    rng,
-                    msa_first_row_jax,
-                    pair_repr_jax,
-                    batch_jax
-                )
-                
-                # Extract positions
-                final_atom_positions = np.array(structure_output['final_atom_positions'])
-                final_atom_mask = np.array(structure_output['final_atom_mask'])
-                
-                # Compute pLDDT from logits
-                # The logits are shape [N_res, num_bins], we need to convert to pLDDT scores
-                plddt_logits = np.array(plddt_output['logits'])
-                num_bins = plddt_logits.shape[-1]
-                
-                # Convert logits to probabilities
-                plddt_probs = jax.nn.softmax(plddt_logits, axis=-1)
-                plddt_probs = np.array(plddt_probs)
-                
-                # Compute expected pLDDT score (center of each bin)
-                bin_centers = np.arange(num_bins) + 0.5
-                bin_centers = bin_centers / num_bins
-                plddt_scores = np.sum(plddt_probs * bin_centers[np.newaxis, :], axis=-1)
-                plddt_scores = plddt_scores * 100.0  # Convert to 0-100 scale
-                
-                # Create b_factors from pLDDT scores
-                # Broadcast pLDDT scores to all atoms of each residue
-                b_factors = plddt_scores[:, np.newaxis] * final_atom_mask
-                
-                # Create PDB
-                pdb_protein = protein.Protein(
-                    aatype=aatype,
-                    atom_positions=final_atom_positions,
-                    atom_mask=final_atom_mask,
-                    residue_index=residue_index + 1,
-                    b_factors=b_factors,
-                    chain_index=np.zeros(len(aatype), dtype=np.int32)
-                )
-                
-                pdb_filename = repr_file.name.replace('_representations.pkl', '_structure.pdb')
-                pdb_path = structures_path / pdb_filename
-                
-                with open(pdb_path, 'w') as f:
-                    f.write(protein.to_pdb(pdb_protein))
-                
-                success_count += 1
-                pbar.set_postfix({
-                    'success': success_count,
-                    'errors': error_count
-                })
-                
-                # Delete the pkl file after successful structure generation
-                repr_file.unlink()
-                
-            except Exception as e:
-                error_count += 1
-                pbar.set_postfix({
-                    'success': success_count,
-                    'errors': error_count
-                })
-                logger.error(f"Error processing {repr_file.name}: {e}")
-                # Optionally delete the pkl file even on error to save space
-                # repr_file.unlink()
+    # Compile the graph down to pure C++ CUDA instructions ONCE
+    jitted_apply = jax.jit(distogram_transform.apply)
+
+    results = {'success': 0, 'skipped': 0, 'error': 0}
+    out_dir = Path(distogram_output_dir)
+
+    # 2. Process all files in this chunk rapidly using the JIT compiled graph
+    for repr_file in files_chunk:
+        data = pair_repr_jax = distogram_output = None
+        try:
+            with open(repr_file, 'rb') as f:
+                data = pickle.load(f)
             
-            finally:
-                pbar.update(1)
+            loop_type = data.get('loop_type', 'unknown')
+            
+            # We usually only care about the main evoformer loop for distograms
+            if loop_type == 'extra_msa':
+                results['skipped'] += 1
+                continue
+            
+            # Explicit device placement onto the GPU
+            pair_repr_jax = jax.device_put(jnp.array(data['pair'], dtype=np.float32), gpu_device)
+            
+            rng = jax.random.PRNGKey(42)
+            
+            # Execute compiled graph
+            distogram_output = jitted_apply(
+                reformatted_params,
+                rng,
+                pair_repr_jax
+            )
+            
+            # Extract logits and bin edges
+            logits = np.array(distogram_output['logits'])
+            bin_edges = np.array(distogram_output['bin_edges'])
+            
+            # Save to compressed numpy file
+            npz_filename = repr_file.name.replace('_representations.pkl', '_distogram.npz')
+            npz_path = out_dir / npz_filename
+            
+            np.savez_compressed(npz_path, logits=logits, bin_edges=bin_edges)
+            
+            results['success'] += 1
+            
+        except Exception as e:
+            results['error'] += 1
+        finally:
+            # Prevent memory leaks inside the worker
+            del data, pair_repr_jax
+            if 'distogram_output' in locals():
+                del distogram_output
+            gc.collect()
+
+    jax.clear_caches()
+    return results
+
+
+def generate_intermediate_distograms_from_representations(
+    jobname: str,
+    model_runner_and_params,
+    distogram_output_dir: str,
+):
+    """Parallel distogram generation orchestrator reading from the staging folder."""
+    import multiprocessing
+    import time
+    import logging
+    from concurrent.futures import ProcessPoolExecutor
+    from tqdm import tqdm
+    from alphafold.model import modules
+    from pathlib import Path
     
-    # Summary
-    logger.info(f"✓ Structure generation complete")
+    logger = logging.getLogger(__name__)
     
+    # We read from the staging directory
+    staging_dir = modules.intermediate_structures_dir
+    if staging_dir is None: return
+    staging_path = Path(staging_dir)
+    if not staging_path.exists(): return
+    
+    repr_files = sorted(staging_path.glob("*_representations.pkl"))
+    if not repr_files: return
+        
+    out_dir = Path(distogram_output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Get the model runner and parameters
+    model_name, model_runner, trained_params = model_runner_and_params[0]
+    config = model_runner.config.model
+    
+    # Extract parameters specifically for the Distogram head out-of-loop
+    distogram_head_prefix = 'alphafold/alphafold_iteration/distogram_head/'
+    reformatted_params = {}
+    for k, v in trained_params.items():
+        if k.startswith(distogram_head_prefix):
+            new_key = k.replace('alphafold/alphafold_iteration/', '')
+            reformatted_params[new_key] = v
+
+    logger.info(f"Spawning parallel pool tasks across physical cores for {len(repr_files)} tracks...")
+    
+    # Use spawn to prevent CUDA driver crashes in child processes
+    ctx = multiprocessing.get_context('spawn')
+    max_workers = 4 
+    
+    # Calculate chunk size and slice the files
+    chunk_size = (len(repr_files) + max_workers - 1) // max_workers
+    chunks = [repr_files[i:i + chunk_size] for i in range(0, len(repr_files), chunk_size)]
+    
+    # We only expect outputs for 'main' loops, so we count them to keep the progress bar accurate
+    total_expected = len([f for f in repr_files if "extra_msa" not in f.name])
+
+    with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as executor:
+        # Submit the chunks to the workers
+        for chunk in chunks:
+            executor.submit(
+                process_distogram_chunk, 
+                chunk, reformatted_params, config, distogram_output_dir
+            )
+        
+        # Asynchronous Directory Polling Progress Bar
+        with tqdm(total=total_expected, unit="file", desc="Generating Distograms") as pbar:
+            previous_count = 0
+            while True:
+                # Count how many .npz files exist in the output directory
+                current_count = len(list(out_dir.glob("*_distogram.npz")))
+                
+                # Update the bar by the difference
+                if current_count > previous_count:
+                    pbar.update(current_count - previous_count)
+                    previous_count = current_count
+                
+                # Break the loop if we've generated all expected files
+                if current_count >= total_expected:
+                    break
+                
+                # Sleep briefly so we aren't hammering the OS file system
+                time.sleep(0.5)
+
+    logger.info(f"✓ Parallel distogram generation complete.")
+
+
 def get_msa_and_templates(
     jobname: str,
     query_sequences: Union[str, List[str]],
@@ -1377,6 +1460,7 @@ def run(
     attention_output_dir: str = None,
     save_attention_compressed: bool = False,
     save_intermediate_structures: str = None,
+    distogram_output_dir: str = None,
     jobname_prefix: Optional[str] = None,
     save_all: bool = False,
     save_recycles: bool = False,
@@ -1494,9 +1578,15 @@ def run(
     if initial_guess is not None:
         logger.info(f'Using initial guess: {initial_guess}')
 
-    # save intermediate structures
-    if save_intermediate_structures:
-        modules.intermediate_structures_dir = save_intermediate_structures
+    if save_intermediate_structures or distogram_output_dir:
+        # Create a temporary staging directory inside the results folder
+        staging_dir = Path(result_dir) / "intermediate_staging"
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        modules.intermediate_structures_dir = str(staging_dir)
+
+    if attention_output_dir:
+        modules.attention_dir = attention_output_dir
+        modules._save_attention_compressed = save_attention_compressed
 
     # Record the parameters of this run
     config = {
@@ -1538,6 +1628,7 @@ def run(
         "attention_output_dir": attention_output_dir,
         "save_attention_compressed": save_attention_compressed,
         "save_intermediate_structures": save_intermediate_structures,
+        "distogram_output_dir": distogram_output_dir,
     }
     config_out_file = result_dir.joinpath("config.json")
     config_out_file.write_text(json.dumps(config, indent=4))
@@ -1755,19 +1846,47 @@ def run(
                 ranks.append(results["rank"])
                 metrics.append(results["metric"])
 
-                if modules.intermediate_structures_dir is not None:
+                # 1. Generate Structures
+                if save_intermediate_structures is not None:
                     try:
-                        logger.info("Generating intermediate structures...")
+                        logger.info("Generating intermediate structures from staging...")
                         generate_intermediate_structures_from_representations(
                             result_dir=result_dir,
                             jobname=jobname,
                             model_type=model_type,
-                            model_runner_and_params=model_runner_and_params
+                            model_runner_and_params=model_runner_and_params,
+                            structures_output_path=save_intermediate_structures
                         )
                     except Exception as e:
                         logger.error(f"Failed to generate intermediate structures: {e}")
                         import traceback
                         traceback.print_exc()
+
+                # 2. Generate Distograms
+                if distogram_output_dir is not None:
+                    try:
+                        logger.info("Generating intermediate distograms from staging...")
+                        generate_intermediate_distograms_from_representations(
+                            jobname=jobname,
+                            model_runner_and_params=model_runner_and_params,
+                            distogram_output_dir=distogram_output_dir
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to generate intermediate distograms: {e}")
+                        import traceback
+                        traceback.print_exc()
+
+                # 3. Clean up the Staging Area
+                if modules.intermediate_structures_dir is not None:
+                    staging_path = Path(modules.intermediate_structures_dir)
+                    if staging_path.exists():
+                        for pkl in staging_path.glob("*_representations.pkl"):
+                            pkl.unlink(missing_ok=True)
+                        # Remove the empty staging directory itself
+                        try:
+                            staging_path.rmdir()
+                        except OSError:
+                            pass
 
             except RuntimeError as e:
                 # This normally happens on OOM. TODO: Filter for the specific OOM error message
@@ -2170,6 +2289,12 @@ def main():
         help="Directory to save intermediate structures from each evoformer loop.",
     )
     output_group.add_argument(
+        "--distogram-output-dir",
+        default=None,
+        type=str,
+        help="Directory to save distogram heads from each evoformer loop.",
+    )
+    output_group.add_argument(
         "--stop-at-score",
         help="Compute models until pLDDT (single chain) or pTM-score (multimer) > threshold is reached. "
         "This speeds up prediction by running less models for easier queries.",
@@ -2386,6 +2511,7 @@ def main():
         use_gpu_relax = args.use_gpu_relax,
         attention_output_dir=args.attention_output_dir,
         save_intermediate_structures=args.save_intermediate_structures,
+        distogram_output_dir=args.distogram_output_dir,
         jobname_prefix=args.jobname_prefix,
         save_all=args.save_all,
         save_recycles=args.save_recycles,

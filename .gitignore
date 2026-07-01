@@ -8,11 +8,12 @@
 /pytestemp
 __pycache__
 .DS_Store
-/attention_visualizations
-/attention_outputs
+/attention_visualizations*
+/attention_outputs*
 /morph_frames/
 /structures
 /env
 *.a3m
 *.fa
 *_*_attention_visualizations
+distogram_output*

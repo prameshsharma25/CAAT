@@ -72,6 +72,10 @@ def render(s: AppState) -> None:
             s.save()
 
         st.divider()
+
+        st.subheader("📐 Distogram Viewer")
+        st.caption("Folders for distogram .npz files and PDB structures.")
+        _distogram_picker(s)
         st.caption(f"v{APP_VERSION}")
 
 
@@ -142,3 +146,33 @@ def _viz_picker(s: AppState) -> None:
     else:
         st.error("Directory not found.")
         s.reset_viz()
+
+
+def _distogram_picker(s: AppState) -> None:
+    def _text(label, attr, placeholder):
+        val = st.text_input(
+            label, value=getattr(s, attr), placeholder=placeholder, key=f"_input_{attr}"
+        )
+        if val != getattr(s, attr):
+            setattr(s, attr, val)
+            s.save()
+
+    _text("Protein A name", "distogram_name_a", "xcl1")
+    _text(
+        "Protein A distogram folder", "distogram_folder_a", "/path/to/xcl1_distograms"
+    )
+    _text(
+        "Protein A structure folder",
+        "distogram_structure_folder_a",
+        "/path/to/xcl1_structures",
+    )
+    st.divider()
+    _text("Protein B name", "distogram_name_b", "anc0")
+    _text(
+        "Protein B distogram folder", "distogram_folder_b", "/path/to/anc0_distograms"
+    )
+    _text(
+        "Protein B structure folder",
+        "distogram_structure_folder_b",
+        "/path/to/anc0_structures",
+    )
