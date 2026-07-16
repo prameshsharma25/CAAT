@@ -1578,7 +1578,7 @@ def run(
     if initial_guess is not None:
         logger.info(f'Using initial guess: {initial_guess}')
 
-    if save_intermediate_structures or distogram_output_dir:
+    if save_intermediate_structures and distogram_output_dir:
         # Create a temporary staging directory inside the results folder
         staging_dir = Path(result_dir) / "intermediate_staging"
         staging_dir.mkdir(parents=True, exist_ok=True)

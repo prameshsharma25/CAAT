@@ -3,7 +3,6 @@ import logging
 import argparse
 
 from pathlib import Path
-
 from colabfold.download import download_alphafold_params
 from colabfold.batch import run, get_queries
 from colabfold.utils import setup_logging
@@ -52,7 +51,7 @@ def main() -> None:
     prediction.add_argument(
         "--distogram-output-dir",
         type=str,
-        default="distogram_outputs",
+        default=None,
         help="Directory to save distogram .npz files.",
     )
 
@@ -131,12 +130,14 @@ def main() -> None:
         if args.save_intermediate_structures
         else None
     )
+    logger.info(f"Intermediate structures path: {query_intermediate_path}")
 
     query_distogram_output_dir = (
         f"{args.distogram_output_dir}/{args.query_name}"
         if args.distogram_output_dir
         else None
     )
+    logger.info(f"Distogram output path: {query_distogram_output_dir}")
 
     run(
         queries=query_data,
