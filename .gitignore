@@ -13,6 +13,7 @@ __pycache__
 /morph_frames/
 /structures
 /env
+/.caat-test-env
 *.a3m
 *.fa
 *_*_attention_visualizations
