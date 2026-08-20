@@ -201,7 +201,11 @@ def initialize_hdf5_file(output_dir: str):
     f"attention_heads_compressed.h5"
   )
   
-  attention_file = h5py.File(filename, 'w')
+  # Append so that resetting the attention state between seeds or invocations
+  # does not silently discard datasets already written to this output file.
+  # create_dataset() will still fail on a duplicate path, which is preferable
+  # to silently replacing data from an earlier prediction.
+  attention_file = h5py.File(filename, 'a')
   
   return attention_file
 
@@ -237,8 +241,12 @@ def write_array_to_file(logits: np.ndarray, filename_prefix: str = "attention_he
       initialize_hdf5_file(attention_dir)
     
     if is_triangle:
-      dataset_name = f"seed_{seed_number:03d}_{loop_type}_evoformer_loop_{loop_num}/head_{attention_head_counter}"
-      
+      dataset_name = (
+        f"seed_{seed_number:03d}/model_{model_number}/"
+        f"recycle_{recycle_number}/{loop_type}_evoformer_loop_{loop_num}/"
+        f"head_{attention_head_counter}"
+      )
+
       ds = attention_file.create_dataset(
         dataset_name,
         data=logits,
