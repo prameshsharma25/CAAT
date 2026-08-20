@@ -46,8 +46,6 @@ jobs:
           # instead of the copy inside the .venv folder.
           PYTHONPATH=. poetry run pytest \
             --cov=alphafold.analysis \
-            --cov=colabfold.batch \
-            --cov=alphafold.model.modules \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             tests/test_pipeline.py \
