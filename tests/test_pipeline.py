@@ -1,8 +1,10 @@
-import pytest
-import tempfile
 import shutil
+import sys
+import tempfile
+
 import numpy as np
 import pandas as pd
+import pytest
 
 from unittest import mock
 from pathlib import Path
@@ -16,6 +18,7 @@ from alphafold.analysis import (
     utils,
 )
 from alphafold.model import modules
+from scripts import run_attention_heads, run_e2e_pipeline
 
 
 @pytest.fixture
@@ -24,6 +27,87 @@ def test_output_dir():
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+class TestPredictionSeedCli:
+    """Tests for forwarding seed options from CAAT prediction wrappers."""
+
+    def test_e2e_forwards_seed_options(self, tmp_path, monkeypatch):
+        prediction_run = mock.Mock()
+        monkeypatch.setattr(run_e2e_pipeline, "run", prediction_run)
+        monkeypatch.setattr(
+            run_e2e_pipeline, "get_queries", mock.Mock(return_value=([], False))
+        )
+        monkeypatch.setattr(
+            run_e2e_pipeline, "download_alphafold_params", mock.Mock()
+        )
+        monkeypatch.setattr(run_e2e_pipeline, "setup_logging", mock.Mock())
+        monkeypatch.setattr(run_e2e_pipeline, "run_pipeline", mock.Mock())
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "run_e2e_pipeline.py",
+                "--query-seq-path",
+                "query.a3m",
+                "--query-name",
+                "query",
+                "--random-seed",
+                "37",
+                "--num-seeds",
+                "3",
+                "--result-dir",
+                str(tmp_path / "results"),
+                "--attention-output-dir",
+                str(tmp_path / "attention"),
+                "--vis-output-dir",
+                str(tmp_path / "visualizations"),
+            ],
+        )
+
+        run_e2e_pipeline.main()
+
+        assert prediction_run.call_args.kwargs["random_seed"] == 37
+        assert prediction_run.call_args.kwargs["num_seeds"] == 3
+
+    def test_attention_heads_forwards_seed_options(self, tmp_path, monkeypatch):
+        prediction_run = mock.Mock()
+        monkeypatch.setattr(run_attention_heads, "run", prediction_run)
+        monkeypatch.setattr(
+            run_attention_heads, "get_queries", mock.Mock(return_value=([], False))
+        )
+        monkeypatch.setattr(
+            run_attention_heads, "download_alphafold_params", mock.Mock()
+        )
+        monkeypatch.setattr(run_attention_heads, "setup_logging", mock.Mock())
+        monkeypatch.setattr(run_attention_heads, "reset_attention_state", mock.Mock())
+        monkeypatch.setattr(
+            run_attention_heads.os.path, "exists", mock.Mock(return_value=True)
+        )
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "run_attention_heads.py",
+                "--query-seq-path",
+                "query.a3m",
+                "--query-name",
+                "query",
+                "--random-seed",
+                "91",
+                "--num-seeds",
+                "2",
+                "--result-dir",
+                str(tmp_path / "results"),
+                "--attention-output-dir",
+                str(tmp_path / "attention"),
+            ],
+        )
+
+        run_attention_heads.main()
+
+        assert prediction_run.call_args.kwargs["random_seed"] == 91
+        assert prediction_run.call_args.kwargs["num_seeds"] == 2
 
 
 @pytest.fixture

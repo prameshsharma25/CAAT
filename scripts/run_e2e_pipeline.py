@@ -29,6 +29,18 @@ def main() -> None:
     )
     prediction.add_argument("--model-type", type=str, default="alphafold2")
     prediction.add_argument("--num-models", type=int, default=5)
+    prediction.add_argument(
+        "--random-seed",
+        type=int,
+        default=0,
+        help="Starting random seed for prediction.",
+    )
+    prediction.add_argument(
+        "--num-seeds",
+        type=int,
+        default=1,
+        help="Number of consecutive seeds to run, starting at --random-seed.",
+    )
     prediction.add_argument("--result-dir", type=str, default="results")
     prediction.add_argument(
         "--attention-output-dir",
@@ -148,6 +160,8 @@ def main() -> None:
         queries=query_data,
         result_dir=args.result_dir,
         num_models=args.num_models,
+        random_seed=args.random_seed,
+        num_seeds=args.num_seeds,
         attention_output_dir=str(query_attn_dir),
         model_type=args.model_type,
         is_complex=is_complex_query,
@@ -187,6 +201,8 @@ def main() -> None:
             queries=target_data,
             result_dir=args.result_dir,
             num_models=args.num_models,
+            random_seed=args.random_seed,
+            num_seeds=args.num_seeds,
             attention_output_dir=str(target_attn_dir),
             model_type=args.model_type,
             is_complex=is_complex_target,
