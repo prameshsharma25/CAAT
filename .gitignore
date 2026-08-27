@@ -6,6 +6,7 @@
 /results
 /tmalign
 /pytestemp
+/data
 __pycache__
 .DS_Store
 /attention_visualizations*
@@ -13,8 +14,6 @@ __pycache__
 /morph_frames/
 /structures
 /env
-*.a3m
-*.fa
 *_*_attention_visualizations
 distogram_output*
 .cache
