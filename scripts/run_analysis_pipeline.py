@@ -71,12 +71,17 @@ def main():
     parser.add_argument(
         "--save-attention-npy",
         action="store_true",
-        help="If set, exports attention weights in .npy format to local disk.",
+        help="Retain the raw .npy tensors selected for attention analysis.",
     )
     parser.add_argument(
         "--generate-alignment",
         action="store_true",
         help="If set, generates a pairwise alignment file from the query and target sequences.",
+    )
+    parser.add_argument(
+        "--include-extra-msa",
+        action="store_true",
+        help="Include extra-MSA Evoformer blocks in attention analysis.",
     )
 
     args = parser.parse_args()
@@ -111,6 +116,7 @@ def main():
         target_highlight_color=args.target_highlight_color,
         save_attention_npy=args.save_attention_npy,
         generate_alignment=args.generate_alignment,
+        include_extra_msa=args.include_extra_msa,
     )
 
 

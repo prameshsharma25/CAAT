@@ -59,6 +59,11 @@ def main():
         default=False,
     )
     parser.add_argument(
+        "--include-extra-msa",
+        action="store_true",
+        help="Emit extra-MSA Evoformer attention blocks in addition to main blocks.",
+    )
+    parser.add_argument(
         "--save-intermediate-structures",
         default=None,
         type=str,
@@ -97,6 +102,7 @@ def main():
         model_type=args.model_type,
         is_complex=is_complex,
         save_attention_compressed=args.save_attention_compressed,
+        include_extra_msa_attention=args.include_extra_msa,
         save_intermediate_structures=args.save_intermediate_structures,
     )
 

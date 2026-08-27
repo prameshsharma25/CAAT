@@ -1459,6 +1459,7 @@ def run(
     save_pair_representations: bool = False,
     attention_output_dir: str = None,
     save_attention_compressed: bool = False,
+    include_extra_msa_attention: bool = False,
     save_intermediate_structures: str = None,
     distogram_output_dir: str = None,
     jobname_prefix: Optional[str] = None,
@@ -1584,6 +1585,7 @@ def run(
         staging_dir.mkdir(parents=True, exist_ok=True)
         modules.intermediate_structures_dir = str(staging_dir)
 
+    modules.set_include_extra_msa_attention(include_extra_msa_attention)
     if attention_output_dir:
         modules.attention_dir = attention_output_dir
         modules._save_attention_compressed = save_attention_compressed
@@ -1627,6 +1629,7 @@ def run(
         "use_probs_extra": use_probs_extra,
         "attention_output_dir": attention_output_dir,
         "save_attention_compressed": save_attention_compressed,
+        "include_extra_msa_attention": include_extra_msa_attention,
         "save_intermediate_structures": save_intermediate_structures,
         "distogram_output_dir": distogram_output_dir,
     }
@@ -2283,6 +2286,11 @@ def main():
         default=None,
     )
     output_group.add_argument(
+        "--include-extra-msa",
+        action="store_true",
+        help="Emit extra-MSA Evoformer attention blocks in addition to main blocks.",
+    )
+    output_group.add_argument(
         "--save-intermediate-structures",
         default=None,
         type=str,
@@ -2510,6 +2518,7 @@ def main():
         use_cluster_profile=not args.disable_cluster_profile,
         use_gpu_relax = args.use_gpu_relax,
         attention_output_dir=args.attention_output_dir,
+        include_extra_msa_attention=args.include_extra_msa,
         save_intermediate_structures=args.save_intermediate_structures,
         distogram_output_dir=args.distogram_output_dir,
         jobname_prefix=args.jobname_prefix,

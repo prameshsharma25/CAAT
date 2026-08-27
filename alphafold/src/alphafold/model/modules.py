@@ -41,6 +41,7 @@ _recycle_number = None
 _model_number = None
 _seed_number = None
 _save_attention_compressed = False
+_include_extra_msa_attention = False
 evoformer_loop_counter = -1
 is_triangle = None
 intermediate_structures_dir = None
@@ -178,14 +179,20 @@ def set_is_triangle(new_is_triangle):
   is_triangle = new_is_triangle
   return 0
 
+def set_include_extra_msa_attention(include_extra_msa_attention: bool):
+  """Control whether extra-MSA triangle-attention tensors are emitted."""
+  global _include_extra_msa_attention
+  _include_extra_msa_attention = include_extra_msa_attention
+
 def reset_attention_state():
   """Reset global attention bookkeeping between separate runs."""
-  global attention_head_counter, evoformer_loop_counter, is_triangle, attention_file, intermediate_structures_dir
+  global attention_head_counter, evoformer_loop_counter, is_triangle, attention_file, intermediate_structures_dir, _include_extra_msa_attention
 
   attention_head_counter = 0
   evoformer_loop_counter = -1
   is_triangle = None
   intermediate_structures_dir = None
+  _include_extra_msa_attention = False
 
   if attention_file is not None:
     attention_file.close()
@@ -207,7 +214,7 @@ def initialize_hdf5_file(output_dir: str):
 
 def write_array_to_file(logits: np.ndarray, filename_prefix: str = "attention_head") -> int:
   """Write attention logits to file in .npy and optionally HDF5 format."""
-  global attention_file, attention_head_counter, evoformer_loop_counter, is_triangle
+  global attention_file, attention_head_counter, evoformer_loop_counter, is_triangle, _include_extra_msa_attention
   
   if evoformer_loop_counter == -1:
       return 0
@@ -224,39 +231,45 @@ def write_array_to_file(logits: np.ndarray, filename_prefix: str = "attention_he
     loop_type = "main"
     loop_num = (evoformer_loop_counter % 52) - 3
 
+  should_write = is_triangle and (
+      loop_type == "main" or _include_extra_msa_attention
+  )
+  if not should_write:
+    # Preserve global indexing even when this tensor is not emitted.
+    attention_head_counter += 1
+    return 0
+
   file_name = f"seed_{seed_number:03d}_model_{model_number}_recycle_{recycle_number}_{loop_type}_evoformer_loop_{loop_num}_global_index_{attention_head_counter}.npy"
 
   os.makedirs(attention_dir, exist_ok=True)
   npy_path = os.path.join(attention_dir, file_name)
 
-  if is_triangle:
-    np.save(npy_path, logits)
+  np.save(npy_path, logits)
 
   if _save_attention_compressed:
     if attention_file is None:
       initialize_hdf5_file(attention_dir)
-    
-    if is_triangle:
-      dataset_name = f"seed_{seed_number:03d}_{loop_type}_evoformer_loop_{loop_num}/head_{attention_head_counter}"
-      
-      ds = attention_file.create_dataset(
-        dataset_name,
-        data=logits,
-        compression='gzip',
-        compression_opts=4,
-        dtype=np.float16,
-        shuffle=True,
-      )
-      
-      ds.attrs['global_index'] = attention_head_counter
-      ds.attrs['model_number'] = model_number
-      ds.attrs['recycle_number'] = recycle_number
-      ds.attrs['seed_number'] = seed_number
-      ds.attrs['loop_type'] = loop_type
-      ds.attrs['loop_number'] = loop_num
-      ds.attrs['is_triangle'] = True
-      ds.attrs['shape'] = logits.shape
-      ds.attrs['n_res'] = logits.shape[-1]
+
+    dataset_name = f"seed_{seed_number:03d}_{loop_type}_evoformer_loop_{loop_num}/head_{attention_head_counter}"
+
+    ds = attention_file.create_dataset(
+      dataset_name,
+      data=logits,
+      compression='gzip',
+      compression_opts=4,
+      dtype=np.float16,
+      shuffle=True,
+    )
+
+    ds.attrs['global_index'] = attention_head_counter
+    ds.attrs['model_number'] = model_number
+    ds.attrs['recycle_number'] = recycle_number
+    ds.attrs['seed_number'] = seed_number
+    ds.attrs['loop_type'] = loop_type
+    ds.attrs['loop_number'] = loop_num
+    ds.attrs['is_triangle'] = True
+    ds.attrs['shape'] = logits.shape
+    ds.attrs['n_res'] = logits.shape[-1]
 
   attention_head_counter += 1
   return 0

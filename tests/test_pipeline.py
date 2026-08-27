@@ -15,6 +15,7 @@ from alphafold.analysis import (
     align_sequence,
     utils,
 )
+from alphafold.model import modules
 
 
 @pytest.fixture
@@ -80,7 +81,15 @@ class TestPipelineBasic:
         assert Path(mock_base_args["save_path"]).exists()
 
         mock_read_seq.assert_called_once()
-        mock_get_attn.assert_called_once()
+        mock_get_n.assert_called_once_with(
+            folder_path=mock_base_args["query_attn_dir"], include_extra_msa=False
+        )
+        mock_get_attn.assert_called_once_with(
+            folder_path=mock_base_args["query_attn_dir"],
+            n=1,
+            save_attention_npy=False,
+            include_extra_msa=False,
+        )
         mock_plot_attn.assert_called_once()
 
     @mock.patch("alphafold.analysis.process_attention.read_sequence_file")
@@ -879,6 +888,17 @@ class TestGetN:
 
         assert process_attention.get_n(test_output_dir) == 20
 
+    def test_get_n_includes_extra_msa_when_requested(self, test_output_dir):
+        """Opt-in mode should consider extra-MSA files during inference."""
+        extra = np.random.rand(30, 4, 30, 30)
+        np.save(
+            Path(test_output_dir)
+            / "attention_extra_msa_evoformer_loop_1_global_index_0.npy",
+            extra,
+        )
+
+        assert process_attention.get_n(test_output_dir, include_extra_msa=True) == 30
+
 
 class TestGetAttention:
     """Tests for attention spectrum loading and processing."""
@@ -946,6 +966,73 @@ class TestGetAttention:
         assert spectrum.shape == (1, n)
         assert not main_path.exists()
         assert not extra_path.exists()
+
+    def test_get_attention_includes_extra_msa_when_requested(self, test_output_dir):
+        """Opt-in mode should add extra-MSA tensors to the spectrum."""
+        n = 5
+        main_path = Path(test_output_dir) / self._main_filename(0)
+        extra_path = (
+            Path(test_output_dir)
+            / "attention_extra_msa_evoformer_loop_1_global_index_1.npy"
+        )
+        np.save(main_path, np.zeros((n, 4, n, n), dtype=np.float16))
+        np.save(extra_path, np.ones((n, 4, n, n), dtype=np.float16))
+
+        spectrum = process_attention.get_attention(
+            test_output_dir, n, save_attention_npy=True, include_extra_msa=True
+        )
+
+        assert spectrum.shape == (2, n)
+        assert main_path.exists()
+        assert extra_path.exists()
+
+    def test_save_attention_retains_only_selected_tensors(self, test_output_dir):
+        """Main-only analysis should not retain excluded extra-MSA tensors."""
+        n = 5
+        main_path = Path(test_output_dir) / self._main_filename(0)
+        extra_path = (
+            Path(test_output_dir)
+            / "attention_extra_msa_evoformer_loop_1_global_index_1.npy"
+        )
+        np.save(main_path, np.zeros((n, 4, n, n), dtype=np.float16))
+        np.save(extra_path, np.ones((n, 4, n, n), dtype=np.float16))
+
+        spectrum = process_attention.get_attention(
+            test_output_dir, n, save_attention_npy=True
+        )
+
+        assert spectrum.shape == (1, n)
+        assert main_path.exists()
+        assert not extra_path.exists()
+
+
+class TestAttentionHeadEmission:
+    """Tests for model-side selection of attention tensors to emit."""
+
+    @pytest.mark.parametrize(
+        ("loop_counter", "include_extra_msa", "should_emit"),
+        [
+            (0, False, False),
+            (0, True, True),
+            (4, False, True),
+        ],
+    )
+    def test_write_array_filters_extra_msa_upstream(
+        self, tmp_path, monkeypatch, loop_counter, include_extra_msa, should_emit
+    ):
+        """Main tensors always emit; extra-MSA tensors require explicit opt-in."""
+        monkeypatch.setattr(modules, "attention_dir", str(tmp_path))
+        monkeypatch.setattr(modules, "attention_head_counter", 0)
+        monkeypatch.setattr(modules, "evoformer_loop_counter", loop_counter)
+        monkeypatch.setattr(modules, "is_triangle", True)
+        monkeypatch.setattr(modules, "_include_extra_msa_attention", include_extra_msa)
+        monkeypatch.setattr(modules, "_save_attention_compressed", False)
+
+        logits = np.zeros((2, 4, 2, 2), dtype=np.float16)
+        modules.write_array_to_file(logits)
+
+        assert bool(list(tmp_path.glob("*.npy"))) is should_emit
+        assert modules.attention_head_counter == 1
 
 
 class TestAverage:
