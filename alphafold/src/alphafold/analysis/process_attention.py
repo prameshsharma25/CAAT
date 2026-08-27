@@ -10,13 +10,20 @@ from typing import List, Tuple
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+MAIN_EVOFORMER_MARKER = "_main_evoformer_loop_"
+
+
+def _is_main_evoformer_attention_file(fname: str) -> bool:
+    """Return whether ``fname`` is a main-loop attention NumPy file."""
+    return fname.endswith(".npy") and MAIN_EVOFORMER_MARKER in fname
+
 
 def get_n(folder_path: str) -> int:
     """Determine the sequence length `n` from attention .npy files in a folder.
 
-    Scans all .npy files in folder_path, records array shapes, and returns the
-    first dimension of the most frequently occurring shape. This is used to
-    infer the model sequence length (n) for downstream processing.
+    Scans main-Evoformer attention .npy files in folder_path, records array
+    shapes, and returns the first dimension of the most frequently occurring
+    shape. Extra-MSA attention files are excluded from downstream analysis.
 
     Args:
         folder_path: path to a directory containing .npy attention files.
@@ -25,12 +32,13 @@ def get_n(folder_path: str) -> int:
         int: the inferred `n` (first dimension) from the most common array shape.
 
     Side effects:
-        Exits the process with sys.exit(1) if no .npy files could be loaded.
+        Exits the process with sys.exit(1) if no main-Evoformer .npy files
+        could be loaded.
     """
     shape_counts = {}
 
     for fname in os.listdir(folder_path):
-        if fname.endswith(".npy"):
+        if _is_main_evoformer_attention_file(fname):
             try:
                 arr = np.load(os.path.join(folder_path, fname))
                 shape = arr.shape
@@ -39,7 +47,7 @@ def get_n(folder_path: str) -> int:
                 logger.warning("Could not load %s: %s", fname, e)
 
     if not shape_counts:
-        logger.error("No .npy files found in %s", folder_path)
+        logger.error("No main-Evoformer .npy files found in %s", folder_path)
         sys.exit(1)
 
     sorted_shapes = sorted(shape_counts.items(), key=lambda item: item[1], reverse=True)
@@ -57,25 +65,27 @@ def get_attention(
 ) -> np.ndarray:
     """Load and convert attention .npy files into a per-file attention spectrum.
 
-    For each .npy file the routine:
+    For each main-Evoformer .npy file the routine:
       - loads the array,
       - views it as float16,
       - applies softmax (via jax.nn.softmax),
       - filters arrays of shape (n, 4, n, n),
       - collapses axes 0,1,2 by summation to produce a length-n vector,
       - immediately deletes the loaded array to free memory,
-      - optionally deletes the .npy file from disk if save_attention_npy is False.
+      - optionally deletes all .npy files, including excluded extra-MSA files,
+        from disk if save_attention_npy is False.
 
     The function returns an array of these per-file vectors (shape: (num_files, n)).
 
     Args:
-        folder_path: directory containing attention .npy files.
+        folder_path: directory containing attention .npy files. Only filenames
+            containing ``_main_evoformer_loop_`` contribute to the spectrum.
         n: expected sequence length (inferred by get_n).
         save_attention_npy: if False, delete .npy files from disk after processing.
 
     Returns:
         np.ndarray: 2D array where each row is the per-residue attention vector
-        derived from a single .npy file.
+        derived from a single main-Evoformer .npy file.
     """
     file_list = [fname for fname in os.listdir(folder_path) if fname.endswith(".npy")]
     file_roots = sorted(file_list, key=lambda x: int(x.split("_")[-1].split(".")[0]))
@@ -85,13 +95,14 @@ def get_attention(
     for fname in file_roots:
         file_path = os.path.join(folder_path, fname)
 
-        arr = np.load(file_path)
-        arr = arr.view(dtype=np.float16)
-        arr = jax.nn.softmax(arr)
+        if _is_main_evoformer_attention_file(fname):
+            arr = np.load(file_path)
+            arr = arr.view(dtype=np.float16)
+            arr = jax.nn.softmax(arr)
 
-        if arr.shape == (n, 4, n, n):
-            attn_vector = np.sum(arr, axis=(0, 1, 2))
-            attention_spectrum.append(attn_vector)
+            if arr.shape == (n, 4, n, n):
+                attn_vector = np.sum(arr, axis=(0, 1, 2))
+                attention_spectrum.append(attn_vector)
 
         if not save_attention_npy:
             try:

@@ -17,3 +17,4 @@ __pycache__
 *.fa
 *_*_attention_visualizations
 distogram_output*
+.cache

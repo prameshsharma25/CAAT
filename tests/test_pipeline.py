@@ -813,12 +813,16 @@ class TestPlotDifference:
 class TestGetN:
     """Tests for sequence length inference from attention files."""
 
+    @staticmethod
+    def _main_filename(index):
+        return f"attention_main_evoformer_loop_1_global_index_{index}.npy"
+
     def test_get_n_single_shape(self, test_output_dir):
         """Test get_n with uniform array shapes."""
         # Create test .npy files with shape (20, 4, 20, 20)
         for i in range(3):
             arr = np.random.rand(20, 4, 20, 20)
-            np.save(Path(test_output_dir) / f"attention_{i}.npy", arr)
+            np.save(Path(test_output_dir) / self._main_filename(i), arr)
 
         n = process_attention.get_n(test_output_dir)
 
@@ -829,11 +833,11 @@ class TestGetN:
         # Create 3 files with shape (20, 4, 20, 20)
         for i in range(3):
             arr = np.random.rand(20, 4, 20, 20)
-            np.save(Path(test_output_dir) / f"attention_{i}.npy", arr)
+            np.save(Path(test_output_dir) / self._main_filename(i), arr)
 
         # Create 1 file with shape (30, 4, 30, 30)
         arr = np.random.rand(30, 4, 30, 30)
-        np.save(Path(test_output_dir) / f"attention_outlier.npy", arr)
+        np.save(Path(test_output_dir) / self._main_filename(3), arr)
 
         n = process_attention.get_n(test_output_dir)
 
@@ -851,19 +855,37 @@ class TestGetN:
         """Test get_n skips corrupted files and uses valid ones."""
         # Create valid file
         arr = np.random.rand(20, 4, 20, 20)
-        np.save(Path(test_output_dir) / "attention_valid.npy", arr)
+        np.save(Path(test_output_dir) / self._main_filename(0), arr)
 
         # Create corrupted file (just write invalid bytes)
-        with open(Path(test_output_dir) / "attention_corrupt.npy", "wb") as f:
+        corrupt_path = Path(test_output_dir) / self._main_filename(1)
+        with open(corrupt_path, "wb") as f:
             f.write(b"invalid npy data")
 
         n = process_attention.get_n(test_output_dir)
 
         assert n == 20, "Should skip corrupted file and use valid one"
 
+    def test_get_n_excludes_extra_msa_files(self, test_output_dir):
+        """Sequence length inference should only inspect main-loop files."""
+        main = np.random.rand(20, 4, 20, 20)
+        extra = np.random.rand(30, 4, 30, 30)
+        np.save(Path(test_output_dir) / self._main_filename(0), main)
+        np.save(
+            Path(test_output_dir)
+            / "attention_extra_msa_evoformer_loop_1_global_index_1.npy",
+            extra,
+        )
+
+        assert process_attention.get_n(test_output_dir) == 20
+
 
 class TestGetAttention:
     """Tests for attention spectrum loading and processing."""
+
+    @staticmethod
+    def _main_filename(index):
+        return f"attention_main_evoformer_loop_1_global_index_{index}.npy"
 
     def test_get_attention_basic(self, test_output_dir):
         """Test loading attention from .npy files."""
@@ -871,7 +893,7 @@ class TestGetAttention:
         # Create attention files with shape (n, 4, n, n)
         for i in range(2):
             arr = np.random.rand(n, 4, n, n).astype(np.float16)
-            np.save(Path(test_output_dir) / f"attention_{i}.npy", arr)
+            np.save(Path(test_output_dir) / self._main_filename(i), arr)
 
         spectrum = process_attention.get_attention(test_output_dir, n)
 
@@ -883,11 +905,11 @@ class TestGetAttention:
         n = 20
         # Create valid file
         arr_valid = np.random.rand(n, 4, n, n).astype(np.float16)
-        np.save(Path(test_output_dir) / f"attention_0.npy", arr_valid)
+        np.save(Path(test_output_dir) / self._main_filename(0), arr_valid)
 
         # Create invalid shape file
         arr_invalid = np.random.rand(n, 2, n, n).astype(np.float16)
-        np.save(Path(test_output_dir) / f"attention_1.npy", arr_invalid)
+        np.save(Path(test_output_dir) / self._main_filename(1), arr_invalid)
 
         spectrum = process_attention.get_attention(test_output_dir, n)
 
@@ -899,12 +921,31 @@ class TestGetAttention:
         # Create files in non-sequential order
         for i in [2, 0, 1]:
             arr = np.full((n, 4, n, n), i, dtype=np.float16)
-            np.save(Path(test_output_dir) / f"attention_{i}.npy", arr)
+            np.save(Path(test_output_dir) / self._main_filename(i), arr)
 
         spectrum = process_attention.get_attention(test_output_dir, n)
 
         # Files should be ordered 0, 1, 2
         assert spectrum.shape[0] == 3, "Should process all 3 files"
+
+    def test_get_attention_excludes_extra_msa_and_cleans_it_up(
+        self, test_output_dir
+    ):
+        """Extra-MSA tensors should not contribute but should still be cleaned up."""
+        n = 5
+        main_path = Path(test_output_dir) / self._main_filename(0)
+        extra_path = (
+            Path(test_output_dir)
+            / "attention_extra_msa_evoformer_loop_1_global_index_1.npy"
+        )
+        np.save(main_path, np.zeros((n, 4, n, n), dtype=np.float16))
+        np.save(extra_path, np.ones((n, 4, n, n), dtype=np.float16))
+
+        spectrum = process_attention.get_attention(test_output_dir, n)
+
+        assert spectrum.shape == (1, n)
+        assert not main_path.exists()
+        assert not extra_path.exists()
 
 
 class TestAverage:
