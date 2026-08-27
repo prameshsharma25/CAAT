@@ -53,10 +53,27 @@ def main():
         help="Number of models to run for each query.\nDefault: 5",
     )
     parser.add_argument(
+        "--random-seed",
+        type=int,
+        default=0,
+        help="Starting random seed for prediction.\nDefault: 0",
+    )
+    parser.add_argument(
+        "--num-seeds",
+        type=int,
+        default=1,
+        help="Number of consecutive seeds to run, starting at --random-seed.\nDefault: 1",
+    )
+    parser.add_argument(
         "--save-attention-compressed",
         action="store_true",
         help="If set, exports compressed attention weights in H5 format to local disk.",
         default=False,
+    )
+    parser.add_argument(
+        "--include-extra-msa",
+        action="store_true",
+        help="Emit extra-MSA Evoformer attention blocks in addition to main blocks.",
     )
     parser.add_argument(
         "--save-intermediate-structures",
@@ -93,10 +110,13 @@ def main():
         queries=queries,
         result_dir=args.result_dir,
         num_models=args.num_models,
+        random_seed=args.random_seed,
+        num_seeds=args.num_seeds,
         attention_output_dir=str(query_attn_dir),
         model_type=args.model_type,
         is_complex=is_complex,
         save_attention_compressed=args.save_attention_compressed,
+        include_extra_msa_attention=args.include_extra_msa,
         save_intermediate_structures=args.save_intermediate_structures,
     )
 

@@ -13,6 +13,7 @@ def attention_state(tmp_path):
     modules._save_attention_compressed = True
     modules.evoformer_loop_counter = 0
     modules.is_triangle = True
+    modules.set_include_extra_msa_attention(True)
     yield
     modules.reset_attention_state()
     modules.attention_dir = None

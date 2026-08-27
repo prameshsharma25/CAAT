@@ -34,6 +34,7 @@ def run_pipeline(
     target_highlight_color: str = "#1f77b4",
     save_attention_npy: bool = False,
     generate_alignment: bool = False,
+    include_extra_msa: bool = False,
 ) -> None:
     """Run the end-to-end attention analysis and visualization pipeline.
 
@@ -64,6 +65,8 @@ def run_pipeline(
         target_highlight_color: Color string for target highlight bars.
         save_attention_npy: If True, exports attention weights in .npy format to local disk.
         generate_alignment: If True, generates a pairwise alignment file from the query and target sequences.
+        include_extra_msa: If True, include extra-MSA Evoformer blocks in
+            attention analysis. The default analyzes only main Evoformer blocks.
     Returns:
         None. Side effects include creating output directories, saving PNG plots
         and CSV files. The function may call sys.exit(1) on fatal configuration errors.
@@ -80,11 +83,17 @@ def run_pipeline(
 
     logger.info("Processing attention data for query: %s", query_name)
 
-    query_n = process_attention.get_n(folder_path=query_attn_dir)
+    logger.info("Include extra-MSA attention blocks: %s", include_extra_msa)
+    query_n = process_attention.get_n(
+        folder_path=query_attn_dir, include_extra_msa=include_extra_msa
+    )
     logger.info("Query attention n value: %d", query_n)
 
     query_attn_spectrum = process_attention.get_attention(
-        folder_path=query_attn_dir, n=query_n, save_attention_npy=save_attention_npy
+        folder_path=query_attn_dir,
+        n=query_n,
+        save_attention_npy=save_attention_npy,
+        include_extra_msa=include_extra_msa,
     )
     logger.info(
         "Retrieved query attention spectrum shape: %s", np.shape(query_attn_spectrum)
@@ -179,7 +188,9 @@ def run_pipeline(
             "Processing attention data for target: %s, %s", target_name, target_attn_dir
         )
 
-        target_n = process_attention.get_n(folder_path=target_attn_dir)
+        target_n = process_attention.get_n(
+            folder_path=target_attn_dir, include_extra_msa=include_extra_msa
+        )
         logger.info(f"Target attention n value: {target_n}")
 
         logger.info("Getting target attention spectrum")
@@ -187,6 +198,7 @@ def run_pipeline(
             folder_path=target_attn_dir,
             n=target_n,
             save_attention_npy=save_attention_npy,
+            include_extra_msa=include_extra_msa,
         )
         logger.info(
             f"Retrieved target attention spectrum shape: {target_attn_spectrum.shape}"

@@ -29,6 +29,18 @@ def main() -> None:
     )
     prediction.add_argument("--model-type", type=str, default="alphafold2")
     prediction.add_argument("--num-models", type=int, default=5)
+    prediction.add_argument(
+        "--random-seed",
+        type=int,
+        default=0,
+        help="Starting random seed for prediction.",
+    )
+    prediction.add_argument(
+        "--num-seeds",
+        type=int,
+        default=1,
+        help="Number of consecutive seeds to run, starting at --random-seed.",
+    )
     prediction.add_argument("--result-dir", type=str, default="results")
     prediction.add_argument(
         "--attention-output-dir",
@@ -89,13 +101,18 @@ def main() -> None:
     analysis.add_argument(
         "--save-attention-npy",
         action="store_true",
-        help="If set, exports individual uncompressed attention heads (.npy) to local disk.",
+        help="Retain the raw .npy tensors selected for attention analysis.",
         default=False,
     )
     analysis.add_argument(
         "--generate-alignment",
         action="store_true",
         help="If set, generates a pairwise alignment file from the query and target sequences.",
+    )
+    analysis.add_argument(
+        "--include-extra-msa",
+        action="store_true",
+        help="Emit and analyze extra-MSA Evoformer attention blocks.",
     )
 
     comparison = parser.add_argument_group("comparison settings (optional)")
@@ -143,10 +160,14 @@ def main() -> None:
         queries=query_data,
         result_dir=args.result_dir,
         num_models=args.num_models,
+        random_seed=args.random_seed,
+        num_seeds=args.num_seeds,
         attention_output_dir=str(query_attn_dir),
         model_type=args.model_type,
         is_complex=is_complex_query,
+        keep_existing_results=False,
         save_attention_compressed=args.save_attention_compressed,
+        include_extra_msa_attention=args.include_extra_msa,
         save_intermediate_structures=query_intermediate_path,
         distogram_output_dir=query_distogram_output_dir,
     )
@@ -180,10 +201,14 @@ def main() -> None:
             queries=target_data,
             result_dir=args.result_dir,
             num_models=args.num_models,
+            random_seed=args.random_seed,
+            num_seeds=args.num_seeds,
             attention_output_dir=str(target_attn_dir),
             model_type=args.model_type,
             is_complex=is_complex_target,
+            keep_existing_results=False,
             save_attention_compressed=args.save_attention_compressed,
+            include_extra_msa_attention=args.include_extra_msa,
             save_intermediate_structures=target_intermediate_path,
             distogram_output_dir=target_distogram_output_dir,
         )
@@ -206,6 +231,7 @@ def main() -> None:
         target_highlight_color=args.target_highlight_color,
         save_attention_npy=args.save_attention_npy,
         generate_alignment=args.generate_alignment,
+        include_extra_msa=args.include_extra_msa,
     )
 
     logger.info("End-to-end pipeline complete. Results in %s", args.vis_output_dir)

@@ -5,6 +5,9 @@ CAAT provides three entry points depending on your workflow needs.
 ## Option A: Full End-to-End Pipeline
 
 Run structure prediction and attention analysis in one command. This is the recommended starting point for most users.
+The end-to-end wrapper reruns prediction and overwrites matching result and
+attention filenames so stale ColabFold completion markers cannot skip required
+attention generation.
 ```bash
 poetry run python scripts/run_e2e_pipeline.py \
   --query-seq-path <path/to/sequence.fasta> \
@@ -23,8 +26,10 @@ poetry run python scripts/run_e2e_pipeline.py \
 | `--alignment-path` | `None` | Path to MSA alignment file (for comparative analysis) |
 | `--model-type` | `alphafold2` | AlphaFold model variant to use |
 | `--num-models` | `5` | Number of models to generate |
+| `--random-seed` | `0` | Starting random seed for prediction |
+| `--num-seeds` | `1` | Number of consecutive seeds to run, starting at `--random-seed` |
 | `--result-dir` | `results` | Output directory for PDB structures |
-| `--save-attention-npy` | `False` | Export individual uncompressed attention heads |
+| `--save-attention-npy` | `False` | Retain raw tensors selected for analysis; combine with `--include-extra-msa` to retain extra-MSA tensors |
 | `--attention-output-dir` | `attention_outputs` | Directory for raw attention files |
 | `--save-attention-compressed` | `False` | Save attention in compressed H5 format |
 | `--save-intermediate-structures` | `None` | Directory for intermediate structure outputs |
@@ -38,6 +43,8 @@ poetry run python scripts/run_e2e_pipeline.py \
 | `--target-highlight-indices` | `None` | Residue positions to highlight in target |
 | `--query-highlight-color` | `#AE0639` | Hex color for query highlights |
 | `--target-highlight-color` | `#1f77b4` | Hex color for target highlights |
+| `--save-attention-npy` | `False` | Retain raw tensors selected for analysis; combine with `--include-extra-msa` to retain extra-MSA tensors |
+| `--include-extra-msa` | `False` | Emit and analyze extra-MSA Evoformer attention blocks; by default only main blocks are written and analyzed |
 
 ---
 
@@ -61,7 +68,10 @@ poetry run python scripts/run_attention_heads.py \
 | `--attention-output-dir` | `attention_outputs` | Where to save `.npy` attention files |
 | `--result-dir` | `results` | Directory for final PDB structures |
 | `--num-models` | `5` | Number of models to run |
+| `--random-seed` | `0` | Starting random seed for prediction |
+| `--num-seeds` | `1` | Number of consecutive seeds to run, starting at `--random-seed` |
 | `--save-attention-compressed` | `False` | Export compressed H5 format |
+| `--include-extra-msa` | `False` | Emit extra-MSA Evoformer attention blocks in addition to main blocks |
 | `--save-intermediate-structures` | `None` | Save intermediate evoformer structures |
 
 ---
@@ -81,6 +91,7 @@ poetry run colabfold_batch \
 | Argument | Description |
 |----------|-------------|
 | `--attention-output-dir` | Directory to save attention head matrices (`.npy` files) |
+| `--include-extra-msa` | Emit extra-MSA Evoformer attention blocks in addition to main blocks |
 | `--save-intermediate-structures` | Directory to save intermediate evoformer structures |
 
 For full ColabFold options, see the [ColabFold documentation](https://github.com/sokrypton/ColabFold) or run:
@@ -117,3 +128,5 @@ poetry run python scripts/run_analysis_pipeline.py \
 | `--target-highlight-indices` | `None` | Residues to highlight in target (1-indexed) |
 | `--query-highlight-color` | `#AE0639` | Hex color for query highlights |
 | `--target-highlight-color` | `#1f77b4` | Hex color for target highlights |
+| `--save-attention-npy` | `False` | Retain raw tensors selected for analysis; combine with `--include-extra-msa` to retain extra-MSA tensors |
+| `--include-extra-msa` | `False` | Include extra-MSA Evoformer blocks in attention analysis; by default only main Evoformer blocks are analyzed |
