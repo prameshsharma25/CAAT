@@ -21,8 +21,13 @@ done
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-if [ -x "$SCRIPT_DIR/.venv/bin/python" ] && \
-    "$SCRIPT_DIR/.venv/bin/python" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+if [ -e "$SCRIPT_DIR/.venv" ]; then
+  if [ ! -x "$SCRIPT_DIR/.venv/bin/python" ] || \
+      ! "$SCRIPT_DIR/.venv/bin/python" -c 'import sys; raise SystemExit(sys.version_info < (3, 11))'; then
+    echo "ERROR: The existing .venv does not contain a working Python 3.11+ interpreter." >&2
+    echo "Move it aside (for example, 'mv .venv .venv.backup') and rerun this script." >&2
+    exit 1
+  fi
   CAAT_PYTHON="$SCRIPT_DIR/.venv/bin/python"
 elif command -v python3.11 >/dev/null 2>&1; then
   CAAT_PYTHON=python3.11

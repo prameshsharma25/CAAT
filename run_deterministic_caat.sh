@@ -5,17 +5,6 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$script_dir"
 
-if [ -x "$script_dir/.venv/bin/python" ] && \
-    "$script_dir/.venv/bin/python" -c 'import alphafold, colabfold' >/dev/null 2>&1; then
-  python_cmd="$script_dir/.venv/bin/python"
-elif [ -x "$script_dir/env/bin/python" ] && \
-    "$script_dir/env/bin/python" -c 'import alphafold, colabfold' >/dev/null 2>&1; then
-  python_cmd="$script_dir/env/bin/python"
-else
-  echo "ERROR: A working CAAT environment was not found. Run 'bash setup_env.sh --gpu' first." >&2
-  exit 1
-fi
-
 # Keep GPU execution and numeric precision consistent between runs.
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 export PYTHONHASHSEED="${PYTHONHASHSEED:-0}"
@@ -29,6 +18,23 @@ export XLA_FLAGS="${caat_existing_xla_flags:+${caat_existing_xla_flags} }--xla_g
 
 # Avoid reserving nearly all GPU memory before prediction begins.
 export XLA_PYTHON_CLIENT_PREALLOCATE="${XLA_PYTHON_CLIENT_PREALLOCATE:-false}"
+
+has_caat_gpu() {
+  local candidate="$1"
+  [ -x "$candidate" ] && \
+    "$candidate" -c 'import alphafold, colabfold, jax; raise SystemExit(0 if any(device.platform == "gpu" for device in jax.devices()) else 1)' \
+      >/dev/null 2>&1
+}
+
+if has_caat_gpu "$script_dir/.venv/bin/python"; then
+  python_cmd="$script_dir/.venv/bin/python"
+elif has_caat_gpu "$script_dir/env/bin/python"; then
+  python_cmd="$script_dir/env/bin/python"
+else
+  echo "ERROR: No CAAT environment with a usable JAX GPU was found." >&2
+  echo "Run 'bash setup_env.sh --gpu' on a GPU node, then retry." >&2
+  exit 1
+fi
 
 "$python_cmd" scripts/run_e2e_pipeline.py \
   --query-seq-path examples/XCL1/xcl1_seq.a3m \
