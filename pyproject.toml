@@ -21,33 +21,35 @@ classifiers = [
 [tool.poetry.dependencies]
 python = ">=3.11"
 absl-py = { version = "^1.0.0", optional = true }
-jax = { version = "0.4.28", optional = true }
-matplotlib = "^3.8.4"
+jax = { version = ">=0.5.2,<0.11", optional = true }
+matplotlib = "3.10.5"
 tensorflow-cpu = { version = "^2.16.2", markers = "platform_machine != 'aarch64' and platform_machine != 'arm64'", optional = true }
 tensorflow = { version = "^2.16.2", markers = "platform_machine == 'aarch64' or platform_machine == 'arm64'", optional = true }
-biopython = "<1.86"
-numpy = "^2.0.2"
-pandas = "^2.2.2"
+biopython = "1.82"
+numpy = "2.2.6"
+pandas = "2.3.2"
 alphafold-attention = "^0.0.26"
 #alphafold-attention = { path = "./alphafold", develop = true }
-requests = "^2.26.0"
-tqdm = "^4.62.2"
+requests = "2.31.0"
+tqdm = "4.66.1"
 appdirs = "^1.4.4"
-py3Dmol = { version = "^2.0.1", optional = true }
+py3Dmol = { version = "2.0.4", optional = true }
 dm-tree = { version = "^0.1.9", optional = true }
-dm-haiku = { version = "^0.0.14", optional = true }
-importlib-metadata = "^8.6.1"
+dm-haiku = { version = "0.0.16", optional = true }
+importlib-metadata = "8.7.0"
+ml-dtypes = "0.5.3"
+opt-einsum = "3.3.0"
 streamlit = "^1.35.0"
 plotly = "^5.18"
 
 #[tool.poetry.dev-dependencies]
-scipy = "^1.16.2"
-ml-collections = "^1.1.0"
+scipy = "1.15.3"
+ml-collections = "0.1.1"
 imageio-ffmpeg = "^0.6.0"
 [tool.poetry.group.dev.dependencies]
 # The latest version conflicts with tensorflow over typing-extensions
 black = "^23.1.0"
-pytest = ">=7.2"
+pytest = "8.4.1"
 pytest-cov = "<5.0.0"
 mkdocs = "^1.6.1"
 mkdocs-material = "^9.7.1"
