@@ -1,3 +1,4 @@
+import contextlib
 import json
 import lzma
 import os
@@ -12,6 +13,24 @@ import numpy as np
 from alphafold.model.features import FeatureDict
 from alphafold.model.model import RunModel
 from colabfold.colabfold import run_mmseqs2
+
+
+@contextlib.contextmanager
+def _legacy_jax_pickle_compat():
+    """Ignore ShapedArray metadata removed after the fixtures were created."""
+    import jax._src.core
+
+    original_update = jax._src.core.ShapedArray.update
+
+    def compatible_update(self, *args, **kwargs):
+        kwargs.pop("named_shape", None)
+        return original_update(self, *args, **kwargs)
+
+    jax._src.core.ShapedArray.update = compatible_update
+    try:
+        yield
+    finally:
+        jax._src.core.ShapedArray.update = original_update
 
 
 def jnp_to_np(output: Dict[str, Any]) -> Dict[str, Any]:
@@ -75,10 +94,11 @@ class MockRunModel:
                 pickle.dump(prev_pred, fp)
 
         else:
-            with lzma.open(feat_file) as handle:
-                prev_feat = pickle.load(handle)
-            with lzma.open(pred_file) as handle:
-                prev_pred = pickle.load(handle)
+            with _legacy_jax_pickle_compat():
+                with lzma.open(feat_file) as handle:
+                    prev_feat = pickle.load(handle)
+                with lzma.open(pred_file) as handle:
+                    prev_pred = pickle.load(handle)
 
         def cmp_dict(x, y):
             """check if two dictionaries are "allclose" """

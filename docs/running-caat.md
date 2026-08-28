@@ -2,6 +2,17 @@
 
 CAAT provides three entry points depending on your workflow needs.
 
+## Reproducible GPU Runs
+
+For comparisons where attention values must be repeatable, use the deterministic launcher included with the repository:
+
+```bash
+bash run_deterministic_caat.sh [ADDITIONAL_E2E_OPTIONS]
+```
+
+It fixes the seed and exports deterministic CUDA/XLA settings before invoking the end-to-end XCL1 example. Additional arguments are forwarded to
+`run_e2e_pipeline.py`. Reproducibility also requires the same `poetry.lock`, model parameters, input MSA, GPU/runtime stack, and CAAT flags; merely selecting the same seed does not make different JAX or hardware stacks bitwise identical.
+
 ## Option A: Full End-to-End Pipeline
 
 Run structure prediction and attention analysis in one command. This is the recommended starting point for most users.

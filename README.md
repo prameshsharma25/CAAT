@@ -19,9 +19,10 @@ Follow these steps to set up and run your local version of ColabFold using **Poe
 
 ### Prerequisites
 
-You need **Python 3.11** and **Poetry** installed on your system.
+You need **Python 3.11 or newer**. The setup script installs Poetry into the
+project environment, or you can install Poetry yourself for the manual setup.
 
-* **Python:** Install [Python 3.11](https://www.python.org/downloads/).
+* **Python:** Install [Python 3.11 or newer](https://www.python.org/downloads/).
 * **Poetry:** Install it by following the official [Poetry installation guide](https://python-poetry.org/docs/#installation).
 ---
 
@@ -39,30 +40,44 @@ To set up the project, you must first clone the repository and then install all 
     cd CAAT
     ```
 
-2.  **Install Dependencies:** Run the following command using Poetry.
+2.  **Automated setup:** Install CPU dependencies with:
     ```bash
-    poetry install
+    bash setup_env.sh
     ```
 
-    **Install AlphaFold Dependencies**:
+    For an NVIDIA GPU with CUDA 12, use:
+    ```bash
+    bash setup_env.sh --gpu
+    ```
+
+    The bundled AlphaFold package is installed normally into `.venv`; the
+    source checkout is not linked in editable mode.
+
+3.  **Manual setup (optional):** If Poetry is already installed, run:
     ```bash
     poetry install -E alphafold
+    poetry run python -m pip install ./alphafold
     ```
 
-    **For local GPU usage or running on an HPC cluster, install additional jax[cuda] libraries**:
+    For CUDA 12 support, also run:
     ```bash
-    poetry run pip install --no-warn-conflicts 'jax[cuda12]==0.4.28' jaxlib==0.4.28
+    poetry run python -m pip install --upgrade 'jax[cuda12]>=0.5.2,<0.11'
     ```
-    
-#### Note
 
-CAAT's default JAX dependency may not be compatible with your GPU hardware or CUDA driver version. If you encounter GPU-related errors (e.g., PTX compilation failures, CUDA OOM, or PJRT version mismatches), you may need to upgrade JAX after setting up the Poetry environment.
+#### JAX version policy
 
-Refer to the official JAX [installation guide](https://docs.jax.dev/en/latest/installation.html) to find the correct version for your hardware and CUDA setup, then override the default installation:
+CAAT no longer pins JAX to one patch release. It accepts
+`jax>=0.5.2,<0.11`; `poetry.lock` records the concrete version tested by this
+checkout. Install the CUDA extra as one package specification so `jax`,
+`jaxlib`, `jax-cuda12-plugin`, and `jax-cuda12-pjrt` remain compatible. Do not
+install those components at unrelated versions. See the official JAX
+[installation guide](https://docs.jax.dev/en/latest/installation.html) for CUDA
+driver and platform requirements.
+
+Verify the resolved version and accelerator before a run:
 
 ```bash
-pip install "jax[cuda12]==<version>" "jax-cuda12-pjrt==<version>" \
-  -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+poetry run python -c "import jax; print(jax.__version__); print(jax.devices())"
 ```
 ---
 
