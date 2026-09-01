@@ -87,6 +87,7 @@ def get_attention(
 
         arr = np.load(file_path)
         arr = arr.view(dtype=np.float16)
+        #logger.info("Running with no softmax on %s", fname)
         arr = jax.nn.softmax(arr)
 
         if arr.shape == (n, 4, n, n):
